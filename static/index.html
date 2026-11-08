@@ -1,0 +1,1902 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>UGC Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#08090b; --surface:#0f1114; --surface-2:#14171b; --surface-3:#1a1e24;
+  --line:#23272e; --line-soft:#1a1d22; --text:#f1f2f4; --muted:#98a0ab; --dim:#69717d;
+  --accent:#d7ff3f; --accent-soft:rgba(215,255,63,.12); --ink:#0a0b06;
+  --info:#8b95ff; --ok:#3ed598; --warn:#ffb020; --err:#ff6b6b;
+  --r:14px; --r-sm:9px; --shadow:0 24px 70px -24px rgba(0,0,0,.85);
+  --font:"Instrument Sans",ui-sans-serif,system-ui,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font:14.5px/1.55 var(--font);
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+::selection{background:var(--accent);color:var(--ink)}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#262b33;border-radius:99px;border:2px solid var(--bg)}
+a{color:inherit}
+button{font:inherit;cursor:pointer;border:none;background:none;color:inherit}
+h1,h2,h3,h4{margin:0;font-weight:600;letter-spacing:-.02em}
+p{margin:0}
+input,textarea,select{font:inherit;color:var(--text);background:var(--surface-2);
+  border:1px solid var(--line);border-radius:var(--r-sm);padding:10px 12px;width:100%;
+  transition:border-color .15s,box-shadow .15s,background .15s}
+input:hover,textarea:hover,select:hover{border-color:#2e343d}
+input:focus,textarea:focus,select:focus{outline:none;border-color:#4b5563;
+  box-shadow:0 0 0 3px rgba(215,255,63,.13);background:#16191e}
+input::placeholder,textarea::placeholder{color:#5d6570}
+textarea{resize:vertical;min-height:90px;line-height:1.55}
+select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,#7b8390 50%),linear-gradient(135deg,#7b8390 50%,transparent 50%);
+  background-position:calc(100% - 17px) 50%,calc(100% - 12px) 50%;background-size:5px 5px,5px 5px;
+  background-repeat:no-repeat;padding-right:34px}
+input[type=checkbox]{appearance:none;width:16px;height:16px;padding:0;margin:0;
+  border:1px solid #3d4652;border-radius:4px;background:#12151a;display:inline-grid;
+  place-items:center;cursor:pointer;transition:background .14s,border-color .14s;flex:0 0 16px}
+input[type=checkbox]:hover{border-color:#5a6472}
+input[type=checkbox]:checked{background:var(--accent);border-color:var(--accent)}
+input[type=checkbox]:checked:after{content:"";width:7px;height:4px;
+  border-left:2px solid var(--ink);border-bottom:2px solid var(--ink);
+  transform:rotate(-45deg) translateY(-1px)}
+label{display:block;font-size:11px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--muted);margin:0 0 7px;font-weight:600}
+.hidden{display:none!important}
+.mono{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+.muted{color:var(--muted)}
+.dim{color:var(--dim)}
+.spacer{flex:1}
+
+/* ------------------------------------------------------------ shell */
+.shell{display:grid;grid-template-columns:264px minmax(0,1fr);min-height:100vh}
+.side{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:16px;
+  padding:18px 14px;border-right:1px solid var(--line);
+  background:linear-gradient(180deg,#0c0e11 0%,#08090b 100%)}
+.brand{display:flex;align-items:center;gap:11px;padding:2px 6px 4px}
+.logo{width:36px;height:36px;border-radius:11px;background:var(--accent);color:var(--ink);
+  display:grid;place-items:center;font-weight:700;font-size:17px;
+  box-shadow:0 0 0 1px rgba(255,255,255,.08) inset,0 8px 24px -8px rgba(215,255,63,.6)}
+.brand h1{font-size:15px;letter-spacing:-.01em}
+.brand small{display:block;color:var(--dim);font-size:10.5px;font-weight:500;
+  letter-spacing:.04em;text-transform:uppercase;margin-top:1px}
+.side-search{position:relative}
+.side-search input{padding:9px 11px;font-size:13px;background:#0b0d10}
+.side-head{display:flex;align-items:center;justify-content:space-between;padding:0 6px}
+.side-head h2{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);font-weight:600}
+.plist{display:flex;flex-direction:column;gap:2px;overflow-y:auto;flex:1;margin:0 -4px;padding:0 4px}
+.pitem{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:10px;
+  cursor:pointer;border:1px solid transparent;transition:.14s;min-width:0;text-align:left}
+.pitem:hover{background:#12151a}
+.pitem.active{background:#151920;border-color:#252b34}
+.pitem .pdot{width:7px;height:7px;border-radius:50%;background:#3a4048;flex:0 0 7px}
+.pitem[data-status="review"] .pdot{background:var(--warn)}
+.pitem[data-status="planning"] .pdot{background:var(--info)}
+.pitem[data-status="editing"] .pdot{background:var(--accent)}
+.pitem[data-status="completed"] .pdot{background:var(--ok)}
+.pitem .pmeta{min-width:0;flex:1}
+.pitem b{display:block;font-weight:550;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pitem span{display:block;color:var(--dim);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.side-foot{display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--line-soft);padding-top:12px}
+.health{display:flex;flex-direction:column;gap:5px;padding:2px 6px 0;font-size:11px}
+.health div{display:flex;align-items:center;gap:7px;color:var(--muted)}
+.health i{width:6px;height:6px;border-radius:50%;background:#3a4048;flex:0 0 6px}
+.health i.on{background:var(--ok);box-shadow:0 0 8px rgba(62,213,152,.7)}
+.health i.off{background:var(--err)}
+
+/* ------------------------------------------------------------ main */
+.main{padding:26px 34px 110px;max-width:1480px;width:100%;margin:0 auto;min-width:0}
+.topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;
+  flex-wrap:wrap;margin-bottom:20px}
+.topbar h2{font-size:27px;letter-spacing:-.035em;line-height:1.15}
+.topbar .meta{color:var(--muted);font-size:13px;margin-top:5px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.topbar .actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.crumb{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);
+  font-weight:600;margin-bottom:6px}
+
+/* ------------------------------------------------------------ buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  padding:9px 14px;border-radius:var(--r-sm);background:var(--surface-2);color:var(--text);
+  border:1px solid var(--line);font-size:13.5px;font-weight:550;white-space:nowrap;
+  transition:background .14s,border-color .14s,transform .08s,color .14s}
+.btn:hover{background:#1c2027;border-color:#333a44}
+.btn:active{transform:translateY(1px)}
+.btn:focus-visible{outline:none;box-shadow:0 0 0 3px var(--accent-soft),0 0 0 1px var(--accent)}
+.btn.primary{background:var(--accent);color:var(--ink);border-color:var(--accent);font-weight:650}
+.btn.primary:hover{background:#e2ff6a;border-color:#e2ff6a}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--muted)}
+.btn.ghost:hover{background:#14171c;color:var(--text);border-color:transparent}
+.btn.outline{background:transparent}
+.btn.danger{color:#ff8f8f;border-color:#3a2326;background:rgba(255,107,107,.05)}
+.btn.danger:hover{background:rgba(255,107,107,.12);border-color:#5a2f34}
+.btn.sm{padding:6px 10px;font-size:12.5px;border-radius:8px}
+.btn.icon{padding:8px;width:34px;height:34px}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.btn.primary:disabled{background:#5d6b24;border-color:#5d6b24;color:#c9d3a8}
+
+/* ------------------------------------------------------------ chips */
+.chip{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:99px;
+  font-size:10.5px;font-weight:650;letter-spacing:.05em;text-transform:uppercase;
+  border:1px solid var(--line);background:var(--surface-2);color:var(--muted);white-space:nowrap}
+.chip i{width:5px;height:5px;border-radius:50%;background:currentColor}
+.chip.ok{color:#7cebb6;border-color:#1d4433;background:rgba(62,213,152,.07)}
+.chip.warn{color:#ffc861;border-color:#4a3714;background:rgba(255,176,32,.07)}
+.chip.err{color:#ff9b9b;border-color:#4a2428;background:rgba(255,107,107,.07)}
+.chip.run{color:var(--accent);border-color:#3f4a17;background:rgba(215,255,63,.07)}
+.chip.info{color:#aab1ff;border-color:#2b3160;background:rgba(139,149,255,.07)}
+
+/* ------------------------------------------------------------ cards */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+  padding:20px 22px;margin-bottom:16px;position:relative}
+.card.flush{padding:0;overflow:hidden}
+.card h3{font-size:15.5px;display:flex;align-items:center;gap:8px}
+.card .sub{color:var(--muted);font-size:12.8px;margin:4px 0 16px;max-width:70ch}
+.card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;
+  flex-wrap:wrap;margin-bottom:16px}
+.card-head .sub{margin:4px 0 0}
+.grid{display:grid;gap:14px}
+.c2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.c3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.c4{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media(max-width:1100px){.c3,.c4{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:720px){.c2,.c3,.c4{grid-template-columns:1fr}}
+.field-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+
+/* ------------------------------------------------------------ stage rail */
+.rail{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));background:var(--surface);
+  border:1px solid var(--line);border-radius:var(--r);overflow:hidden;margin-bottom:18px}
+.railstep{display:flex;align-items:center;gap:11px;padding:13px 15px;cursor:pointer;
+  border-right:1px solid var(--line-soft);transition:background .14s;min-width:0;text-align:left}
+.railstep:last-child{border-right:none}
+.railstep:hover{background:#13161b}
+.railstep .rn{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;
+  font-family:var(--mono);font-size:11px;background:#191d23;color:var(--dim);
+  border:1px solid #262b33;flex:0 0 26px}
+.railstep.done .rn{background:rgba(62,213,152,.12);color:#7cebb6;border-color:#1d4433}
+.railstep.active .rn{background:var(--accent-soft);color:var(--accent);border-color:#3f4a17}
+.railstep.warn .rn{background:rgba(255,176,32,.1);color:#ffc861;border-color:#4a3714}
+.railstep.fail .rn{background:rgba(255,107,107,.1);color:#ff9b9b;border-color:#4a2428}
+.railstep .rl{min-width:0;flex:1}
+.railstep b{display:block;font-size:12.8px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.railstep span{display:block;font-size:10.5px;color:var(--dim);text-transform:capitalize;white-space:nowrap}
+@media(max-width:820px){.rail{grid-template-columns:1fr 1fr}.railstep:nth-child(2){border-right:none}}
+
+/* ------------------------------------------------------------ tabs */
+.tabs{display:flex;gap:2px;margin-bottom:18px;border-bottom:1px solid var(--line);overflow-x:auto}
+.tab{padding:10px 12px;color:var(--muted);border-bottom:2px solid transparent;
+  font-size:13.5px;font-weight:550;transition:.14s;white-space:nowrap;margin-bottom:-1px}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--text);border-bottom-color:var(--accent)}
+.tab .cnt{font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-left:5px}
+
+/* ------------------------------------------------------------ job bar */
+.jobbar{position:relative;overflow:hidden;display:flex;align-items:center;gap:10px;
+  background:#101308;border:1px solid #333d16;border-radius:var(--r);padding:11px 15px;
+  margin-bottom:16px;font-size:13px;color:#dbe6b0}
+.jobbar .track{position:absolute;left:0;right:0;bottom:0;height:2px;background:#2a3212;overflow:hidden}
+.jobbar .track:after{content:"";position:absolute;top:0;left:-40%;width:40%;height:100%;
+  background:var(--accent);animation:slide 1.3s ease-in-out infinite}
+@keyframes slide{0%{left:-40%}100%{left:100%}}
+
+/* ------------------------------------------------------------ scenes */
+.scenes{display:grid;grid-template-columns:repeat(auto-fill,minmax(232px,1fr));gap:14px}
+.scene{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+  overflow:hidden;display:flex;flex-direction:column;transition:border-color .16s,transform .16s}
+.scene:hover{border-color:#313842}
+.scene .thumb{position:relative;height:300px;background:#060708;display:grid;place-items:center;overflow:hidden}
+.scene .thumb img,.scene .thumb video{width:100%;height:100%;object-fit:contain;display:block}
+.scene .thumb .empty{color:#414852;font-size:12px;text-align:center;padding:24px;line-height:1.5}
+.scene .overlay{position:absolute;top:9px;left:9px;right:9px;display:flex;
+  justify-content:space-between;align-items:flex-start;gap:8px;pointer-events:none}
+.scene .overlay>*{pointer-events:auto}
+.playbadge{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:44px;height:44px;
+  border-radius:50%;background:rgba(8,9,11,.66);border:1px solid rgba(255,255,255,.2);
+  display:grid;place-items:center;color:#fff;font-size:13px;pointer-events:none;
+  backdrop-filter:blur(4px)}
+.pick{display:grid;place-items:center;width:24px;height:24px;border-radius:7px;
+  background:rgba(8,9,11,.75);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(6px)}
+.scene .sbody{padding:13px 14px 14px;display:flex;flex-direction:column;gap:9px;flex:1}
+.scene .sn{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.scene .sn b{font-size:13px}
+.scene .prompt{font-size:11.8px;color:var(--muted);line-height:1.5;
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.scene .meta{font-family:var(--mono);font-size:10.5px;color:var(--dim);display:flex;gap:8px;flex-wrap:wrap}
+.scene .acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:auto;padding-top:2px}
+.qcline{font-size:11px;line-height:1.45;color:var(--warn)}
+.qcline.err{color:var(--err)}
+
+/* ------------------------------------------------------------ table */
+.tbl-wrap{overflow:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface-2)}
+table.tbl{width:100%;border-collapse:collapse;font-size:12.8px;min-width:760px}
+.tbl th{position:sticky;top:0;background:#101317;text-align:left;color:var(--dim);
+  font-weight:600;font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;
+  padding:10px 12px;border-bottom:1px solid var(--line);z-index:1;white-space:nowrap}
+.tbl td{padding:9px 12px;border-bottom:1px solid var(--line-soft);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:#12151a}
+.tbl td input,.tbl td textarea{padding:7px 9px;font-size:12px;background:#0e1115;border-color:transparent}
+.tbl td input:hover,.tbl td textarea:hover{border-color:#262c34}
+.tbl td textarea{min-height:52px;max-height:220px;field-sizing:content;line-height:1.5}
+.tbl .num{font-family:var(--mono);color:var(--dim);font-size:11px}
+.iconbtn{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:7px;
+  color:var(--dim);transition:.14s}
+.iconbtn:hover{background:#1b1f26;color:var(--text)}
+
+/* ------------------------------------------------------------ files */
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.fchip{padding:6px 11px;border-radius:99px;font-size:12px;color:var(--muted);
+  border:1px solid var(--line);background:transparent;transition:.14s}
+.fchip:hover{color:var(--text);border-color:#333a44}
+.fchip.active{background:var(--surface-3);color:var(--text);border-color:#3a424e}
+.frow{display:grid;grid-template-columns:34px minmax(0,1fr) 84px 92px 128px;gap:10px;
+  align-items:center;padding:9px 12px;border-bottom:1px solid var(--line-soft);font-size:12.8px}
+.frow:last-child{border-bottom:none}
+.frow:hover{background:#12151a}
+.fico{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;
+  background:#191d23;color:var(--muted);font-size:11px;font-family:var(--mono)}
+.frow .fname{min-width:0}
+.frow .fname b{display:block;font-weight:550;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.frow .fname span{display:block;color:var(--dim);font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.frow .fsize,.frow .fdate{font-family:var(--mono);font-size:10.8px;color:var(--dim)}
+.frow .facts{display:flex;gap:2px;justify-content:flex-end}
+@media(max-width:820px){.frow{grid-template-columns:34px minmax(0,1fr) 110px}.frow .fsize,.frow .fdate{display:none}}
+
+/* ------------------------------------------------------------ dropzone */
+.dz{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
+  border:1.5px dashed #2b313a;border-radius:12px;padding:18px 14px;text-align:center;
+  color:var(--muted);font-size:12.5px;cursor:pointer;transition:.16s;background:#0b0d10}
+.dz:hover{border-color:#46505c;color:var(--text);background:#0e1116}
+.dz.over{border-color:var(--accent);background:rgba(215,255,63,.06);color:var(--text)}
+.dz b{font-size:12.8px;font-weight:600;color:var(--text)}
+.dz .hint{font-size:10.8px;color:var(--dim);line-height:1.4}
+.dz.slim{padding:12px;flex-direction:row;gap:9px;text-align:left}
+.refs{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.ref{position:relative;width:72px}
+.ref img{width:72px;height:72px;object-fit:cover;border-radius:9px;border:1px solid var(--line);display:block}
+.ref .tag{display:block;font-size:9.5px;color:var(--dim);margin-top:4px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.ref .x{position:absolute;top:-5px;right:-5px;width:19px;height:19px;border-radius:50%;
+  background:#1c2027;border:1px solid #333a44;color:var(--muted);font-size:12px;
+  display:grid;place-items:center;line-height:1}
+.ref .x:hover{background:var(--err);color:#160708;border-color:var(--err)}
+
+/* ------------------------------------------------------------ misc */
+.notice{padding:11px 13px;border-radius:10px;font-size:12.8px;margin:12px 0;white-space:pre-wrap}
+.notice.err{background:rgba(255,107,107,.07);border:1px solid #432327;color:#ffa8a8}
+.notice.ok{background:rgba(62,213,152,.07);border:1px solid #1d4433;color:#8ef0bd}
+.notice.warn{background:rgba(255,176,32,.06);border:1px solid #4a3714;color:#ffce7a}
+.empty{display:flex;flex-direction:column;align-items:center;text-align:center;gap:9px;
+  padding:56px 24px;color:var(--muted)}
+.empty .eico{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;
+  background:var(--surface-2);border:1px solid var(--line);font-size:19px;color:var(--dim)}
+.empty h3{font-size:16px;color:var(--text)}
+.empty p{font-size:13px;max-width:44ch;line-height:1.55}
+.empty .acts{margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.log{background:#070809;border:1px solid var(--line);border-radius:11px;padding:13px;
+  font-family:var(--mono);font-size:11px;line-height:1.7;color:#8d96a2;max-height:220px;
+  overflow:auto;white-space:pre-wrap}
+.spin{width:13px;height:13px;border:2px solid #3a4048;border-top-color:var(--accent);
+  border-radius:50%;animation:spin .7s linear infinite;display:inline-block;flex:0 0 13px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.skeleton{background:linear-gradient(90deg,#12151a 25%,#191d23 37%,#12151a 63%);
+  background-size:400% 100%;animation:sk 1.4s ease infinite;border-radius:8px}
+@keyframes sk{0%{background-position:100% 0}100%{background-position:-100% 0}}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:12.5px}
+.kv dt{color:var(--dim)}
+.kv dd{margin:0;font-family:var(--mono);font-size:11.5px}
+details{border-top:1px solid var(--line-soft);padding-top:12px;margin-top:12px}
+summary{cursor:pointer;font-size:12.5px;color:var(--muted);font-weight:550;user-select:none}
+summary:hover{color:var(--text)}
+.savebar{position:sticky;bottom:14px;z-index:20;display:flex;align-items:center;gap:12px;
+  justify-content:flex-end;background:rgba(15,17,20,.92);backdrop-filter:blur(10px);
+  border:1px solid var(--line);border-radius:13px;padding:11px 14px;margin-top:6px;box-shadow:var(--shadow)}
+.savebar .msg{flex:1;font-size:12.5px;color:var(--muted)}
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;color:var(--dim);
+  border:1px solid var(--line);border-radius:6px;padding:2px 6px;font-family:var(--mono)}
+.bar{height:6px;background:#1a1e24;border-radius:99px;overflow:hidden}
+.bar>i{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width .4s}
+.sep{height:1px;background:var(--line-soft);margin:16px 0}
+
+/* ------------------------------------------------------------ modal + toast */
+.modal{position:fixed;inset:0;z-index:80;display:grid;place-items:center;padding:22px;
+  background:rgba(3,4,6,.72);backdrop-filter:blur(7px);animation:fade .14s ease}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.sheet{width:min(680px,100%);max-height:88vh;overflow:auto;background:var(--surface);
+  border:1px solid #2b313a;border-radius:18px;box-shadow:var(--shadow);animation:rise .18s ease}
+.sheet.wide{width:min(1040px,100%)}
+@keyframes rise{from{transform:translateY(10px);opacity:.6}to{transform:none;opacity:1}}
+.sheet-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;
+  padding:20px 22px 14px;border-bottom:1px solid var(--line-soft)}
+.sheet-head h3{font-size:17px}
+.sheet-head p{color:var(--muted);font-size:12.5px;margin-top:4px}
+.sheet-body{padding:20px 22px}
+.sheet-foot{display:flex;justify-content:flex-end;gap:8px;padding:14px 22px;
+  border-top:1px solid var(--line-soft);position:sticky;bottom:0;background:var(--surface)}
+.toasts{position:fixed;right:18px;bottom:18px;z-index:90;display:flex;flex-direction:column;
+  gap:8px;max-width:380px}
+.toast{display:flex;align-items:flex-start;gap:10px;background:#161a20;border:1px solid #2c333d;
+  border-radius:11px;padding:11px 13px;font-size:12.8px;box-shadow:var(--shadow);
+  animation:rise .18s ease;color:var(--text)}
+.toast.ok{border-color:#1d4433}
+.toast.err{border-color:#432327}
+.toast .ti{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:1px}
+.toast.ok .ti{color:var(--ok)}
+.toast.err .ti{color:var(--err)}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <div class="brand">
+      <div class="logo">U</div>
+      <div><h1>UGC Studio</h1><small>MiniMax H3</small></div>
+    </div>
+    <button class="btn primary" onclick="showNew()" style="width:100%">+ New project</button>
+    <div class="side-search"><input id="psearch" placeholder="Search projects…" oninput="refreshProjectList()"/></div>
+    <div class="side-head"><h2>Projects</h2><span class="mono" id="pcount"></span></div>
+    <div class="plist" id="plist"></div>
+    <div class="side-foot">
+      <button class="btn ghost sm" onclick="showCharacters()" style="justify-content:flex-start">Characters</button>
+      <button class="btn ghost sm" onclick="showInventory()" style="justify-content:flex-start">Model inventory</button>
+      <button class="btn ghost sm" onclick="showSettings()" style="justify-content:flex-start">Settings</button>
+      <div class="health" id="health"></div>
+    </div>
+  </aside>
+  <main class="main" id="main"></main>
+</div>
+<div id="modal-root"></div>
+<div class="toasts" id="toast-root"></div>
+
+<script>
+/* ------------------------------------------------------------ helpers */
+const $ = (s,r=document)=>r.querySelector(s);
+const $$ = (s,r=document)=>Array.from(r.querySelectorAll(s));
+const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtSize = b => !b&&b!==0 ? '—' : b>=1073741824 ? (b/1073741824).toFixed(2)+' GB'
+  : b>=1048576 ? (b/1048576).toFixed(1)+' MB' : b>=1024 ? Math.round(b/1024)+' KB' : b+' B';
+const fmtNum = n => (n||0).toLocaleString();
+function timeAgo(iso){
+  if(!iso) return '—';
+  const d = new Date(iso); if(isNaN(d)) return '—';
+  const s = (Date.now()-d.getTime())/1000;
+  if(s<60) return 'just now';
+  if(s<3600) return Math.floor(s/60)+'m ago';
+  if(s<86400) return Math.floor(s/3600)+'h ago';
+  if(s<604800) return Math.floor(s/86400)+'d ago';
+  return d.toLocaleDateString();
+}
+const fileUrl = (pid,rel)=>`/api/file?project=${encodeURIComponent(pid)}&path=${encodeURIComponent(rel)}`;
+const dlUrl = (pid,rel)=>`/api/file?project=${encodeURIComponent(pid)}&path=${encodeURIComponent(rel)}&download=1`;
+const stagedUrl = p => `/api/staged?path=${encodeURIComponent(p)}`;
+
+const CHIP = {
+  completed:['ok','Completed'], approved:['ok','Approved'], ready:['ok','Ready'],
+  generating:['run','Generating'], planning:['run','Planning'],
+  awaiting_approval:['warn','Awaiting approval'], needs_attention:['warn','Needs attention'],
+  failed:['err','Failed'], not_started:['','Not started'], draft:['','Draft'],
+  review:['warn','In review'], editing:['run','Editing']
+};
+const chip = st => { const c = CHIP[st]||['',(st||'—').replace(/_/g,' ')]; return `<span class="chip ${c[0]}"><i></i>${esc(c[1])}</span>`; };
+const humanStatus = st => { const s=String(st||'not started').replace(/_/g,' ').toLowerCase();
+  return s.charAt(0).toUpperCase()+s.slice(1); };
+
+/* ------------------------------------------------------------ state */
+let S = {
+  view:'home', tab:'brief', project:null, projects:[], inv:null, chars:[], files:null,
+  settings:null, briefEdit:false, sel:{stills:new Set(), videos:new Set()}, fileFilter:'all',
+  charDraft:{face:[],body:[],cloths:[],voice:null}, poll:null, elapsed:null
+};
+
+/* ------------------------------------------------------------ api */
+async function api(path, opts={}){
+  const r = await fetch(path, opts);
+  const txt = await r.text();
+  let data; try{ data = txt ? JSON.parse(txt) : {}; }catch{ data = {error:txt}; }
+  if(!r.ok) throw new Error(data.error || ('HTTP '+r.status));
+  return data;
+}
+const jpost = (p,b)=>api(p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b||{})});
+const jpatch = (p,b)=>api(p,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(b||{})});
+
+/* ------------------------------------------------------------ toast */
+function toast(msg, kind='ok', ms=4600){
+  const box = $('#toast-root');
+  const el = document.createElement('div');
+  el.className = 'toast '+kind;
+  el.innerHTML = `<span class="ti">${kind==='err'?'!':'ok'}</span><div>${esc(msg)}</div>`;
+  box.appendChild(el);
+  setTimeout(()=>{ el.style.opacity='0'; el.style.transition='opacity .25s'; setTimeout(()=>el.remove(),260); }, ms);
+}
+function fail(e){ toast(e?.message || String(e), 'err', 7000); }
+
+/* ------------------------------------------------------------ modal */
+function openModal(html, wide=false){
+  $('#modal-root').innerHTML = `<div class="modal" onclick="if(event.target===this)closeModal()">
+    <div class="sheet ${wide?'wide':''}" role="dialog" aria-modal="true">${html}</div></div>`;
+  const first = $('#modal-root input, #modal-root textarea, #modal-root select');
+  if(first) setTimeout(()=>first.focus(),40);
+}
+function closeModal(){ $('#modal-root').innerHTML=''; }
+function askConfirm(title, message, confirmLabel='Delete', danger=true){
+  return new Promise(resolve=>{
+    openModal(`
+      <div class="sheet-head"><div><h3>${esc(title)}</h3><p>${esc(message)}</p></div></div>
+      <div class="sheet-foot">
+        <button class="btn ghost" onclick="closeModal();__ask(false)">Cancel</button>
+        <button class="btn ${danger?'danger':'primary'}" onclick="closeModal();__ask(true)">${esc(confirmLabel)}</button>
+      </div>`);
+    window.__ask = v => { resolve(v); delete window.__ask; };
+  });
+}
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
+
+/* ------------------------------------------------------------ boot */
+async function boot(){
+  await refreshHealth();
+  await refreshProjects();
+  const last = localStorage.getItem('lastProject');
+  if(last){
+    try{ await openProject(last); return; }catch{}
+  }
+  showHome();
+}
+async function refreshHealth(){
+  try{
+    const h = await api('/api/health');
+    const ll = h.llm||{};
+    const planner = ll.has_gemini_key ? 'Gemini'
+      : (ll.ollama?.available ? 'Ollama' : ll.lmstudio?.available ? 'LM Studio'
+      : ll.has_openrouter_key ? 'OpenRouter' : 'Offline rules');
+    $('#health').innerHTML = `
+      <div><i class="${h.comfy_online?'on':'off'}"></i>ComfyUI ${h.comfy_online?'online':'offline'}</div>
+      <div><i class="${planner==='Offline rules'?'':'on'}"></i>Planner · ${esc(planner)}</div>`;
+  }catch{ $('#health').innerHTML = '<div><i class="off"></i>Backend offline</div>'; }
+}
+async function refreshProjects(){
+  S.projects = await api('/api/projects');
+  refreshProjectList();
+}
+function refreshProjectList(){
+  const q = ($('#psearch')?.value || '').toLowerCase().trim();
+  const list = S.projects.filter(p=>!q || (p.name||'').toLowerCase().includes(q)
+    || (p.client||'').toLowerCase().includes(q));
+  const box = $('#plist');
+  $('#pcount').textContent = S.projects.length ? String(S.projects.length) : '';
+  if(!list.length){
+    box.innerHTML = `<div class="dim" style="padding:10px;font-size:12px">${q?'No match.':'No projects yet.'}</div>`;
+    return;
+  }
+  box.innerHTML = list.map(p=>`
+    <button class="pitem ${S.project&&S.project.id===p.id?'active':''}" data-status="${esc(p.status||'')}"
+      onclick="openProject('${p.id}')">
+      <span class="pdot"></span>
+      <span class="pmeta"><b>${esc(p.name||'Untitled')}</b>
+        <span>${esc(p.client||'No client')} · ${esc(p.status||'draft')}</span></span>
+    </button>`).join('');
+}
+
+/* ------------------------------------------------------------ home */
+function showHome(){
+  S.view='home'; S.project=null; S.files=null;
+  stopPolling();
+  $('#main').innerHTML = `
+    <div class="topbar">
+      <div><div class="crumb">Studio</div><h2>Production dashboard</h2>
+        <div class="meta">Plan, generate and export MiniMax H3 UGC ads — locally.</div></div>
+      <div class="actions"><button class="btn primary" onclick="showNew()">+ New project</button></div>
+    </div>
+    <div id="setup"><div class="card"><div class="skeleton" style="height:96px"></div></div></div>
+    <div class="card">
+      <h3>How a project runs</h3>
+      <p class="sub">Each stage has an approval gate. Nothing renders until you approve the previous step.</p>
+      <div class="grid c4">
+        ${[['01','Brief','Describe the product and paste the client brief.'],
+           ['02','Plan','The planner writes the storyboard; you edit every line.'],
+           ['03','Images','One locked creator, one still per scene — approve them.'],
+           ['04','Video','Image-to-video with real speech, then stitched with burned-in text.']]
+          .map(([n,t,d])=>`<div><div class="badge">STAGE ${n}</div>
+            <b style="display:block;margin:9px 0 4px;font-size:13.5px">${t}</b>
+            <p class="mono" style="line-height:1.55">${d}</p></div>`).join('')}
+      </div>
+    </div>
+    <div id="recent"></div>`;
+  renderSetup();
+  renderRecent();
+}
+async function renderSetup(){
+  const box = $('#setup'); if(!box) return;
+  try{
+    const [inv, ll] = await Promise.all([api('/api/inventory'), api('/api/llm/status')]);
+    S.inv = inv;
+    const c = inv.comfy||{}, h = inv.hardware||{}, dev = (h.devices||[])[0]||{};
+    const issues = [];
+    if(!c.online) issues.push('ComfyUI is not running — launch the ComfyUI Desktop app.');
+    if((c.missing_required||[]).length) issues.push('Missing nodes: '+c.missing_required.join(', '));
+    if(!ll.has_gemini_key && !ll.has_openrouter_key && !ll.ollama?.available && !ll.lmstudio?.available)
+      issues.push('No AI planner configured — the built-in rule-based planner will be used.');
+    box.innerHTML = `
+      <div class="card">
+        <div class="card-head"><div><h3>System check</h3>
+          <p class="sub">Detected live on this machine.</p></div>
+          ${issues.length?'<span class="chip warn"><i></i>Needs attention</span>':'<span class="chip ok"><i></i>All good</span>'}</div>
+        <div class="grid c4">
+          <div><label>ComfyUI</label><div style="margin-bottom:4px">${c.online?'<span class="chip ok"><i></i>online</span>':'<span class="chip err"><i></i>offline</span>'}</div>
+            <div class="mono">v${esc(c.version||'?')} · ${fmtNum(c.classes)} nodes</div></div>
+          <div><label>GPU</label><div style="font-size:13px">${esc((dev.name||'unknown').replace(/^cuda:\d+\s*/,'').split('\n')[0])}</div>
+            <div class="mono">${dev.vram_total_gb||0} GB VRAM · ${dev.vram_free_gb||0} GB free</div></div>
+          <div><label>Memory</label><div style="font-size:13px">${h.ram_total_gb||'?'} GB RAM</div>
+            <div class="mono">${h.ram_free_gb||'?'} GB free</div></div>
+          <div><label>Recommended profile</label><div style="font-size:13px">${esc(inv.recommended_profile||'draft')}</div>
+            <div class="mono">${esc((inv.profiles?.[inv.recommended_profile]||{}).note||'')}</div></div>
+        </div>
+        ${issues.length?`<div class="notice warn">${issues.map(esc).join('\n')}</div>`
+          :`<div class="notice ok">Everything needed is installed and running.</div>`}
+      </div>`;
+  }catch(e){ box.innerHTML = `<div class="card"><div class="notice err">${esc(e.message)}</div></div>`; }
+}
+function renderRecent(){
+  const box = $('#recent'); if(!box) return;
+  if(!S.projects.length){ box.innerHTML=''; return; }
+  box.innerHTML = `<div class="card"><h3>Recent projects</h3>
+    <p class="sub">Pick up where you left off.</p>
+    <div class="grid c3">${S.projects.slice(0,6).map(p=>`
+      <button class="pitem" style="border-color:var(--line);padding:13px" onclick="openProject('${p.id}')">
+        <span class="pdot" data-status="${esc(p.status||'')}"></span>
+        <span class="pmeta"><b>${esc(p.name||'Untitled')}</b>
+          <span>${esc(p.client||'No client')} · ${esc(p.duration||15)}s · ${timeAgo(p.updated)}</span></span>
+        ${chip(p.status)}
+      </button>`).join('')}</div></div>`;
+}
+
+/* ------------------------------------------------------------ new project */
+function showNew(){
+  openModal(`
+    <div class="sheet-head"><div><h3>New project</h3>
+      <p>Everything here can be edited later.</p></div></div>
+    <div class="sheet-body">
+      <div class="grid c2">
+        <div><label>Project name</label><input id="f_name" placeholder="Glow Serum Launch"/></div>
+        <div><label>Client / brand</label><input id="f_client" placeholder="Lumière Skincare"/></div>
+      </div>
+      <div style="margin-top:14px"><label>Brief</label>
+        <textarea id="f_brief" rows="6" placeholder="What is the product, who is it for, what should the ad achieve? Paste the client's brief here."></textarea></div>
+      <div class="grid c2" style="margin-top:14px">
+        <div><label>Duration</label><select id="f_dur">
+          ${[5,10,15,20,30,45,60].map(v=>`<option value="${v}" ${v===15?'selected':''}>${v}s</option>`).join('')}</select></div>
+        <div><label>Aspect</label><select id="f_aspect">
+          <option value="9:16" selected>9:16 vertical</option><option value="1:1">1:1 square</option>
+          <option value="16:9">16:9 landscape</option></select></div>
+        <div><label>Platform</label><select id="f_platform">
+          <option>Instagram Reels</option><option>YouTube Shorts</option><option>TikTok</option><option>Custom</option></select></div>
+        <div><label>Style</label><select id="f_style">
+          <option>talking-head UGC</option><option>testimonial</option><option>product demonstration</option>
+          <option>lifestyle</option><option>unboxing</option><option>product-focused commercial</option></select></div>
+      </div>
+      <div class="grid c2" style="margin-top:14px">
+        <div><label>Campaign objective</label><input id="f_objective" placeholder="Drive first purchases"/></div>
+        <div><label>Concepts</label><input id="f_concepts" type="number" min="1" max="5" value="1"/></div>
+      </div>
+      <label style="display:flex;gap:9px;align-items:center;text-transform:none;font-size:13px;color:var(--text);margin-top:14px">
+        <input type="checkbox" id="f_single"/>
+        One continuous take — the camera never cuts, one unbroken spoken line</label>
+      <div class="notice warn" style="margin-bottom:0">Longer videos become <b>more scenes</b>, not longer clips — one H3 generation tops out near 15 seconds. A 30 s ad is roughly 6 scenes.</div>
+    </div>
+    <div class="sheet-foot">
+      <button class="btn ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn primary" onclick="createProject()">Create project</button>
+    </div>`);
+}
+async function createProject(){
+  try{
+    const body = {
+      name:($('#f_name').value||'').trim()||'Untitled Project',
+      client:($('#f_client').value||'').trim(),
+      brief:($('#f_brief').value||'').trim(),
+      duration:+$('#f_dur').value, aspect:$('#f_aspect').value,
+      platform:$('#f_platform').value, style:$('#f_style').value,
+      objective:($('#f_objective').value||'').trim(),
+      concepts:+$('#f_concepts').value||1,
+      single_take:$('#f_single').checked
+    };
+    if(!body.brief) throw new Error('Please paste the client brief.');
+    const p = await jpost('/api/projects', body);
+    closeModal(); await refreshProjects(); await openProject(p.id);
+    toast('Project created.');
+  }catch(e){ fail(e); }
+}
+
+/* ------------------------------------------------------------ project */
+async function openProject(id){
+  const p = await api('/api/projects/'+id);
+  S.project = p; S.view='project'; S.files=null; S.briefEdit=false;
+  S.sel={stills:new Set(),videos:new Set()};
+  S.settings = await api('/api/settings').catch(()=>S.settings||{});
+  localStorage.setItem('lastProject', id);
+  await refreshProjectList();
+  renderProject();
+  startPolling();
+}
+function stageState(p,k){
+  const s = p[k]||{};
+  if(s.status==='completed'||s.status==='approved') return 'done';
+  if(s.status==='failed') return 'fail';
+  if(['awaiting_approval','needs_attention'].includes(s.status)) return 'warn';
+  if(['generating','planning'].includes(s.status)) return 'active';
+  return '';
+}
+const TAB_FOR_STAGE = {stage01:'plan', stage02:'stills', stage03:'video', stage04:'export'};
+function renderProject(){
+  const p = S.project; if(!p) return showHome();
+  const s1=p.stage01||{}, s2=p.stage02||{}, s3=p.stage03||{}, s4=p.stage04||{};
+  const job=p.job||{};
+  const sceneCount=(s1.storyboard?.scenes||[]).length;
+  const stills=Object.values(s2.scenes||{}).filter(x=>x.approved).length;
+  const vids=Object.values(s3.scenes||{}).filter(x=>x.file).length;
+  const rail = [
+    ['stage01','01','Plan',humanStatus(s1.status)],
+    ['stage02','02','Scene images',`${stills}/${sceneCount||'—'} approved`],
+    ['stage03','03','Scene videos',`${vids}/${sceneCount||'—'} rendered`],
+    ['stage04','04','Export',`${(s4.exports||[]).length} ${(s4.exports||[]).length===1?'file':'files'}`]
+  ].map(([k,n,label,status])=>`
+    <button class="railstep ${stageState(p,k)}" onclick="goTab('${TAB_FOR_STAGE[k]}')">
+      <span class="rn">${n}</span>
+      <span class="rl"><b>${label}</b><span>${esc(status)}</span></span>
+    </button>`).join('');
+  $('#main').innerHTML = `
+    <div class="topbar">
+      <div>
+        <div class="crumb">Project</div>
+        <h2>${esc(p.name||'Untitled')}</h2>
+        <div class="meta">
+          <span>${esc(p.client||'No client')}</span><span class="dim">·</span>
+          <span>${esc(p.style||'')}</span><span class="dim">·</span>
+          <span>${esc(p.duration||15)}s</span><span class="dim">·</span>
+          <span>${esc(p.aspect||'9:16')}</span><span class="dim">·</span>
+          <span>${esc(p.platform||'')}</span>
+          ${p.updated?`<span class="dim">·</span><span class="dim">updated ${timeAgo(p.updated)}</span>`:''}
+        </div>
+      </div>
+      <div class="actions">
+        ${job.running?`<span class="chip run"><i class="spin" style="width:9px;height:9px;border-width:1.5px"></i>${esc(job.kind)}</span>`:''}
+        <button class="btn sm" onclick="revealProject()">Open folder</button>
+        <button class="btn sm" data-act="duplicate-project">Duplicate</button>
+        <button class="btn sm danger" data-act="delete-project">Delete</button>
+        <button class="btn sm" onclick="refreshNow(this)">Refresh</button>
+      </div>
+    </div>
+    <div id="jobbar">${jobBar(p)}</div>
+    <div class="rail">${rail}</div>
+    <div class="tabs">
+      ${[['brief','Brief'],['plan','Storyboard',sceneCount],['stills','Images',sceneCount],
+         ['video','Videos',sceneCount],['export','Export',(s4.exports||[]).length],['files','Files']]
+        .map(([k,label,cnt])=>`<button class="tab ${S.tab===k?'active':''}" data-tab="${k}"
+          onclick="goTab('${k}')">${label}${cnt?`<span class="cnt">${cnt}</span>`:''}</button>`).join('')}
+    </div>
+    <div id="tabbody"></div>`;
+  renderTab(S.tab);
+  if(job.running) startElapsed(job.started);
+}
+function jobBar(p){
+  const job=p.job||{};
+  if(!job.running) return job.error?`<div class="notice err">${esc(job.error)}</div>`:'';
+  return `<div class="jobbar"><span class="spin"></span>
+    <span><b style="font-weight:600">${esc(job.kind)}</b> running — this keeps going if you close the tab.</span>
+    <span class="spacer"></span><span class="mono" id="jobelapsed"></span>
+    <div class="track"></div></div>`;
+}
+function startElapsed(started){
+  clearInterval(S.elapsed);
+  const tick=()=>{
+    const el=$('#jobelapsed'); if(!el){clearInterval(S.elapsed);return;}
+    const t=started?Math.max(0,(Date.now()-new Date(started).getTime())/1000):0;
+    el.textContent = `${Math.floor(t/60)}:${String(Math.floor(t%60)).padStart(2,'0')} elapsed`;
+  };
+  tick(); S.elapsed=setInterval(tick,1000);
+}
+function goTab(name){
+  S.tab=name;
+  $$('.tab').forEach(t=>t.classList.toggle('active', t.dataset.tab===name));
+  renderTab(name);
+}
+function renderTab(name){
+  const p=S.project, box=$('#tabbody'); if(!box||!p) return;
+  S.tab=name;
+  if(name==='brief') return renderBrief(box,p);
+  if(name==='plan') return renderPlan(box,p);
+  if(name==='stills') return renderStills(box,p);
+  if(name==='video') return renderVideos(box,p);
+  if(name==='export') return renderExport(box,p);
+  if(name==='files') return renderFiles(box,p);
+}
+async function refreshNow(btn){
+  if(btn){ btn.disabled=true; btn.innerHTML='<span class="spin"></span>'; }
+  try{ await refreshProject(true); }catch(e){ fail(e); }
+  if(btn){ btn.disabled=false; btn.textContent='Refresh'; }
+}
+async function refreshProject(force=false){
+  if(!S.project) return;
+  const fresh = await api('/api/projects/'+S.project.id);
+  S.project = fresh;
+  if(S.view!=='project') return;
+  const ae=document.activeElement;
+  const typing = ae && /INPUT|TEXTAREA|SELECT/.test(ae.tagName) && $('#main')?.contains(ae);
+  if(force || !typing) renderProject();
+  else $('#jobbar').innerHTML = jobBar(fresh);
+  refreshProjectList();
+}
+async function revealProject(){
+  try{ await jpost('/api/reveal',{path:S.files?.root || ''}); }
+  catch(e){
+    // The root is only known once the file list has been fetched.
+    try{ const f=await api(`/api/projects/${S.project.id}/files`); S.files=f;
+      await jpost('/api/reveal',{path:f.root}); }catch(err){ fail(err); }
+  }
+}
+
+/* ------------------------------------------------------------ brief */
+function renderBrief(box,p){
+  const rr=p.refs||{};
+  if(S.briefEdit){
+    box.innerHTML=`
+      <div class="card">
+        <div class="card-head"><div><h3>Project details</h3>
+          <p class="sub">Changing the duration or aspect re-plans nothing by itself — the storyboard keeps its scenes until you re-plan.</p></div></div>
+        <div class="grid c2">
+          <div><label>Project name</label><input id="e_name" value="${esc(p.name||'')}"/></div>
+          <div><label>Client</label><input id="e_client" value="${esc(p.client||'')}"/></div>
+        </div>
+        <div style="margin-top:14px"><label>Brief</label>
+          <textarea id="e_brief" rows="9">${esc(p.brief||'')}</textarea></div>
+        <div class="grid c4" style="margin-top:14px">
+          <div><label>Duration</label><input id="e_dur" type="number" min="3" max="120" value="${esc(p.duration||15)}"/></div>
+          <div><label>Aspect</label><select id="e_aspect">
+            ${['9:16','1:1','16:9'].map(a=>`<option ${p.aspect===a?'selected':''}>${a}</option>`).join('')}</select></div>
+          <div><label>Platform</label><input id="e_platform" value="${esc(p.platform||'')}"/></div>
+          <div><label>Style</label><input id="e_style" value="${esc(p.style||'')}"/></div>
+        </div>
+        <div style="margin-top:14px"><label>Objective</label><input id="e_objective" value="${esc(p.objective||'')}"/></div>
+        <label style="display:flex;gap:9px;align-items:center;text-transform:none;font-size:13px;color:var(--text);margin-top:14px">
+          <input type="checkbox" id="e_single" ${p.single_take?'checked':''}/>
+          One continuous take — the camera never cuts. Re-plan the storyboard after changing this.</label>
+        <div class="field-row" style="margin-top:18px">
+          <button class="btn primary" onclick="saveBrief()">Save changes</button>
+          <button class="btn ghost" onclick="S.briefEdit=false;renderProject()">Cancel</button>
+        </div>
+      </div>`;
+    return;
+  }
+  box.innerHTML=`
+    <div class="card">
+      <div class="card-head">
+        <div><h3>Client brief</h3><p class="sub">${esc(p.objective||'No objective set')}</p></div>
+        <div class="field-row">
+          <button class="btn sm ghost" onclick="S.briefEdit=true;renderProject()">Edit</button>
+          <button class="btn primary sm" onclick="runBrief()">${p.stage01?.fields?'Re-analyse':'Analyse brief'}</button>
+        </div>
+      </div>
+      <div style="white-space:pre-wrap;line-height:1.7;font-size:13.5px;color:#d5d9de;max-width:82ch">${esc(p.brief||'No brief yet.')}</div>
+    </div>
+    <div class="card">
+      <h3>Reference images</h3>
+      <p class="sub">Product shots lock product identity. Creator shots steer the face. Scene references lock framing — scene 1 uses image 1, scene 2 image 2, and so on. Drop files straight onto a box — no paths to type.</p>
+      <div class="grid c3">
+        ${refBlock(p,'products','Product images','image')}
+        ${refBlock(p,'creators','Creator images','image')}
+        ${refBlock(p,'scenes','Scene references','image')}
+        ${refBlock(p,'extra','Extra references','image')}
+      </div>
+      <div style="margin-top:16px">${refBlock(p,'videos','Reference video','video')}</div>
+    </div>
+    ${p.stage01?.fields?`<div class="card">
+      <details open><summary>Extracted brief data</summary>
+        <div class="log" style="margin-top:10px">${esc(JSON.stringify(p.stage01.fields,null,2))}</div>
+      </details></div>`:''}`;
+}
+function refBlock(p,kind,label,accept){
+  const list=(p.refs||{})[kind]||[];
+  const thumbs = list.map(r=>{
+    const isVideo = kind==='videos';
+    return `<div class="ref">
+      ${isVideo?`<div style="height:72px;display:grid;place-items:center;border:1px solid var(--line);border-radius:9px;font-size:10px;color:var(--dim)">video</div>`
+        :`<img src="${fileUrl(p.id,r.file)}" alt="${esc(r.original||'')}" loading="lazy"/>`}
+      <button class="x" title="Remove" data-act="del-ref" data-kind="${kind}" data-path="${esc(r.file)}">×</button>
+      <span class="tag" title="${esc(r.original||'')}">${esc(r.original||r.file)}</span>
+    </div>`;
+  }).join('');
+  return `<div>
+    <label>${esc(label)} ${list.length?`<span class="badge" style="margin-left:4px">${list.length}</span>`:''}</label>
+    <div class="dz" data-drop-kind="${kind}" data-accept="${accept}" onclick="pickFiles('${p.id}','${kind}','${accept}')">
+      <b>Drop or click</b>
+      <span class="hint">${accept==='video'?'mp4, webm, mov':'png, jpg, webp'} · multiple allowed</span>
+    </div>
+    ${thumbs?`<div class="refs">${thumbs}</div>`:''}
+  </div>`;
+}
+function pickFiles(pid,kind,accept){
+  const inp=document.createElement('input');
+  inp.type='file'; inp.multiple=true; inp.accept=accept==='video'?'video/*':'image/*';
+  inp.onchange=()=>uploadProjectFiles(pid,kind,inp.files);
+  inp.click();
+}
+async function uploadProjectFiles(pid,kind,files){
+  if(!files||!files.length) return;
+  const fd=new FormData();
+  fd.append('kind',kind);
+  // Unique field names: the multipart parser keys files by field name.
+  Array.from(files).forEach((f,i)=>fd.append('file'+i,f,f.name));
+  try{
+    const r=await api(`/api/projects/${pid}/upload`,{method:'POST',body:fd});
+    toast(`${(r.added||[]).length} file(s) added to ${kind}.`);
+    await refreshProject(true);
+  }catch(e){ fail(e); }
+}
+async function saveBrief(){
+  try{
+    const body={name:$('#e_name').value.trim(),client:$('#e_client').value.trim(),
+      brief:$('#e_brief').value.trim(),objective:$('#e_objective').value.trim(),
+      duration:+$('#e_dur').value,aspect:$('#e_aspect').value,
+      platform:$('#e_platform').value.trim(),style:$('#e_style').value.trim(),
+      single_take:$('#e_single').checked};
+    S.project=await jpatch('/api/projects/'+S.project.id, body);
+    S.briefEdit=false; renderProject(); refreshProjectList(); toast('Project details saved.');
+  }catch(e){ fail(e); }
+}
+async function runBrief(){
+  try{
+    toast('Analysing the brief…','ok',2500);
+    await jpost(`/api/projects/${S.project.id}/brief`);
+    await refreshProject(true); goTab('plan');
+    toast('Brief analysed.');
+  }catch(e){ fail(e); }
+}
+
+/* ------------------------------------------------------------ storyboard */
+function renderPlan(box,p){
+  const s1=p.stage01||{}, sb=s1.storyboard;
+  if(!sb){
+    box.innerHTML=`
+      <div class="card"><div class="empty">
+        <div class="eico">✎</div>
+        <h3>No storyboard yet</h3>
+        <p>${s1.fields?'The brief is analysed. Now let the planner turn it into a shot-by-shot storyboard you can edit.':'Analyse the brief first, then plan the storyboard.'}</p>
+        <div class="acts">
+          ${!s1.fields?`<button class="btn" onclick="runBrief()">Analyse brief</button>`:''}
+          <button class="btn primary" onclick="runPlan()">Plan storyboard</button>
+        </div>
+        ${s1.status==='planning'?`<div class="notice ok" style="width:100%"><span class="spin"></span> Planning…</div>`:''}
+        ${s1.error?`<div class="notice err" style="width:100%">${esc(s1.error)}</div>`:''}
+      </div></div>`;
+    return;
+  }
+  const scenes=sb.scenes||[];
+  const rows=scenes.map((s,i)=>`
+    <tr data-row="${s.n}">
+      <td class="num">${s.n}</td>
+      <td style="width:74px"><input value="${esc(s.seconds)}" onchange="patchScene(${s.n},{seconds:+this.value})"/></td>
+      <td style="width:120px"><input value="${esc(s.purpose||'')}" onchange="patchScene(${s.n},{purpose:this.value})"/></td>
+      <td style="min-width:200px"><textarea onchange="patchScene(${s.n},{script:this.value})">${esc(s.script||'')}</textarea></td>
+      <td style="min-width:220px"><textarea onchange="patchScene(${s.n},{image_prompt:this.value})">${esc(s.image_prompt||'')}</textarea></td>
+      <td style="min-width:220px"><textarea onchange="patchScene(${s.n},{video_prompt:this.value})">${esc(s.video_prompt||'')}</textarea></td>
+      <td style="white-space:nowrap;text-align:right">
+        <button class="iconbtn" title="Move up" ${i===0?'disabled':''} onclick="moveScene(${s.n},-1)">↑</button>
+        <button class="iconbtn" title="Move down" ${i===scenes.length-1?'disabled':''} onclick="moveScene(${s.n},1)">↓</button>
+        <button class="iconbtn" title="Rewrite image prompt" onclick="regenPrompt(${s.n})">✎</button>
+      </td>
+    </tr>`).join('');
+  const qc=(s1.qc||[]);
+  box.innerHTML=`
+    <div class="card">
+      <div class="card-head">
+        <div><h3>${esc(sb.concept_name||'Storyboard')}</h3>
+          <p class="sub">Hook: ${esc(sb.hook||'—')} · ${sb.total_seconds||scenes.reduce((a,s)=>a+(+s.seconds||0),0)}s total · ${scenes.length} scenes</p></div>
+        <div class="field-row">
+          <button class="btn sm ghost" onclick="runPlan()">Re-plan</button>
+          <button class="btn primary sm" onclick="approveSb()">Approve storyboard</button>
+        </div>
+      </div>
+      ${s1.status==='completed'?'<div class="notice ok">Storyboard approved — scene images can be generated.</div>':''}
+      ${p.single_take
+        ? (scenes.length>1
+            ? `<div class="notice warn">This project is set to one continuous take, but the storyboard has ${scenes.length} scenes. Press Re-plan to collapse it into a single shot.</div>`
+            : '<div class="notice ok">Continuous take — one shot, the camera never cuts.</div>')
+        : ''}
+      ${qc.length?`<div class="notice warn">${qc.map(q=>'• '+esc(q.msg)).join('\n')}</div>`:''}
+      <div class="tbl-wrap"><table class="tbl">
+        <thead><tr><th>#</th><th>Sec</th><th>Purpose</th><th>Script</th><th>Image prompt</th><th>Video prompt</th><th></th></tr></thead>
+        <tbody>${rows}</tbody></table></div>
+      <p class="mono" style="margin-top:10px">Edits save when you leave a field. Keep spoken lines under ~12 words — long lines collapse at low step counts, and titles must be spelled out (“Grand Theft Auto 6”, never “GTA 6”).</p>
+    </div>`;
+}
+async function runPlan(){
+  try{
+    toast('Planning the storyboard…','ok',2500);
+    await jpost(`/api/projects/${S.project.id}/plan`);
+    await refreshProject(true); goTab('plan');
+    toast('Storyboard ready.');
+  }catch(e){ fail(e); }
+}
+async function patchScene(n,patch){
+  try{
+    S.project=await jpatch(`/api/projects/${S.project.id}/scene/${n}`, patch);
+    toast('Scene '+n+' saved.','ok',1800);
+  }catch(e){ fail(e); }
+}
+async function moveScene(n,dir){
+  const scenes=(S.project.stage01?.storyboard?.scenes||[]).map(s=>s.n);
+  const i=scenes.indexOf(n), j=i+dir;
+  if(i<0||j<0||j>=scenes.length) return;
+  [scenes[i],scenes[j]]=[scenes[j],scenes[i]];
+  try{
+    await jpost(`/api/projects/${S.project.id}/reorder`,{order:scenes});
+    await refreshProject(true);
+  }catch(e){ fail(e); }
+}
+function regenPrompt(n){
+  const s=(S.project.stage01?.storyboard?.scenes||[]).find(x=>x.n===n);
+  openModal(`
+    <div class="sheet-head"><div><h3>Scene ${n} image prompt</h3>
+      <p>This drives the still. Approval gate still applies.</p></div></div>
+    <div class="sheet-body"><textarea id="rp_prompt" rows="7">${esc(s?.image_prompt||'')}</textarea></div>
+    <div class="sheet-foot">
+      <button class="btn ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn primary" onclick="savePrompt(${n})">Save prompt</button>
+    </div>`);
+}
+async function savePrompt(n){
+  const v=$('#rp_prompt').value.trim();
+  closeModal(); await patchScene(n,{image_prompt:v});
+}
+async function approveSb(){
+  try{
+    await jpost(`/api/projects/${S.project.id}/approve-storyboard`);
+    await refreshProject(true); goTab('stills');
+    toast('Storyboard approved.');
+  }catch(e){ fail(e); }
+}
+
+/* ------------------------------------------------------------ stills */
+function sceneAspect(p){ return p.aspect==='1:1'?'1/1':p.aspect==='16:9'?'16/9':'9/16'; }
+function renderStills(box,p){
+  const scenes=p.stage01?.storyboard?.scenes||[];
+  if(!scenes.length){
+    box.innerHTML=`<div class="card"><div class="empty">
+      <div class="eico">▦</div><h3>No scenes to draw</h3>
+      <p>Approve a storyboard first — each scene gets one still.</p>
+      <div class="acts"><button class="btn primary" onclick="goTab('plan')">Open storyboard</button></div>
+    </div></div>`;
+    return;
+  }
+  const s2=p.stage02||{}, job=p.job||{};
+  const sel=S.sel.stills;
+  const cards=scenes.map(s=>{
+    const e=(s2.scenes||{})[String(s.n)]||{};
+    const img=e.file?`<img src="${fileUrl(p.id,e.file)}" alt="Scene ${s.n}" loading="lazy"/>`
+      :`<div class="empty">Not generated</div>`;
+    return `<article class="scene">
+      <div class="thumb">
+        ${img}
+        <div class="overlay">
+          <label class="pick"><input type="checkbox" data-pick="stills" data-n="${s.n}" ${sel.has(s.n)?'checked':''}/></label>
+          ${chip(e.approved?'approved':(e.status||'not_started'))}
+        </div>
+      </div>
+      <div class="sbody">
+        <div class="sn"><b>Scene ${s.n}</b><span class="mono">${esc(s.seconds)}s</span></div>
+        <div class="prompt" title="${esc(s.image_prompt||'')}">${esc(s.image_prompt||'No prompt')}</div>
+        ${(e.qc||[]).map(q=>`<div class="qcline ${q.level==='error'?'err':''}">${esc(q.msg)}</div>`).join('')}
+        <div class="meta">${e.width&&e.height?`<span>${e.width}×${e.height}</span>`:''}${e.seed!=null?`<span>seed ${e.seed}</span>`:''}</div>
+        <div class="acts">
+          ${e.file?`<button class="btn sm ${e.approved?'':'primary'}" data-act="approve-still" data-n="${s.n}">${e.approved?'Approved':'Approve'}</button>`:''}
+          <button class="btn sm ghost" data-act="regen-still" data-n="${s.n}">Regenerate</button>
+          <button class="btn sm ghost" data-act="replace-still" data-n="${s.n}">Import still</button>
+          ${e.file?`<a class="btn sm ghost" href="${dlUrl(p.id,e.file)}" download>Save</a>`:''}
+        </div>
+      </div></article>`;
+  }).join('');
+  const ch=p.character||{};
+  box.innerHTML=`
+    <div class="card">
+      <div class="card-head">
+        <div><h3>Creator character</h3>
+          <p class="sub">One locked face reused in every scene. This is the project sheet; the reusable identity used by videos is chosen in Settings.</p></div>
+        <div class="field-row">
+          <button class="btn sm ghost" data-act="import-sheet">Import sheet</button>
+          <button class="btn sm ghost" onclick="showCharacters()">Character library</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
+        ${ch.file?`<img src="${fileUrl(p.id,ch.file)}" alt="creator" style="width:150px;border-radius:11px;border:1px solid var(--line)"/>`
+          :`<div class="dz" style="width:150px;height:150px;padding:10px"><b>No sheet</b><span class="hint">optional</span></div>`}
+        <div style="flex:1;min-width:240px">
+          <label>Describe the creator</label>
+          <textarea id="ch_desc" rows="3" placeholder="e.g. Indian woman in her mid-20s, lean, long dark hair, natural makeup, cropped racing jacket">${esc(ch.prompt||'')}</textarea>
+          <div class="field-row" style="margin-top:10px">
+            <button class="btn ${ch.file?'':'primary'}" data-act="gen-character">${ch.file?'Regenerate sheet':'Generate sheet'}</button>
+            <span class="mono">${ch.width?`${ch.width}×${ch.height} · seed ${ch.seed}`:''}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <div><h3>Scene images</h3><p class="sub">Native H3 image generation · ${esc(s2.resolution||'native')} · ${esc(p.style||'')}</p></div>
+        <div class="field-row">
+          ${sel.size?`<span class="badge">${sel.size} selected</span>`:''}
+          <button class="btn sm" data-act="gen-selected-stills" ${sel.size?'':'disabled'}>Generate selected</button>
+          <button class="btn sm" data-act="look-test" title="Render scene 1 only, check the look, then render the rest">Look test</button>
+          <button class="btn primary sm" data-act="gen-all-stills">Generate all</button>
+        </div>
+      </div>
+      ${job.running&&job.kind==='stills'?`<div class="notice ok"><span class="spin"></span> Generating images…</div>`:''}
+      ${lookGate(p)}
+      <div class="scenes">${cards}</div>
+    </div>`;
+}
+function lookGate(p){
+  const scenes=p.stage01?.storyboard?.scenes||[];
+  if(!scenes.length) return '';
+  const s2=p.stage02?.scenes||{};
+  const first=s2['1']||{};
+  const others=scenes.filter(s=>+s.n>1&&((s2[String(s.n)]||{}).file)).length;
+  if(first.file&&first.approved) return '';
+  if(first.file) return `<div class="notice warn">Scene 1 is rendered. Check the look, then approve it — the batch reuses the same character, lighting and framing.</div>`;
+  if(others) return '';
+  return `<div class="notice ok">Start with a <b>Look test</b>: it renders scene 1 only. Approving the look first costs one render; discovering it after the batch costs one per scene.</div>`;
+}
+function openRegenStill(n){
+  const e=(S.project.stage02?.scenes||{})[String(n)]||{};
+  const s=(S.project.stage01?.storyboard?.scenes||[]).find(x=>x.n===n)||{};
+  openModal(`
+    <div class="sheet-head"><div><h3>Regenerate scene ${n} image</h3>
+      <p>Edit the prompt or fix the seed, then render one still.</p></div></div>
+    <div class="sheet-body">
+      <label>Image prompt</label>
+      <textarea id="rs_prompt" rows="6">${esc(e.prompt||s.image_prompt||'')}</textarea>
+      <div class="grid c2" style="margin-top:14px">
+        <div><label>Seed</label><input id="rs_seed" type="number" value="${esc(e.seed??'')}" placeholder="blank = random"/></div>
+        <div><label>Current</label><div class="mono" style="padding-top:10px">${e.file?`${esc(e.width||'')}×${esc(e.height||'')} · seed ${esc(e.seed??'—')}`:'not generated'}</div></div>
+      </div>
+    </div>
+    <div class="sheet-foot">
+      <button class="btn ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn primary" onclick="doRegenStill(${n})">Regenerate</button>
+    </div>`);
+}
+async function doRegenStill(n){
+  const prompt=$('#rs_prompt').value.trim();
+  const seedRaw=$('#rs_seed').value.trim();
+  closeModal();
+  toast('Rendering scene '+n+'… this blocks until it finishes.','ok',4000);
+  try{
+    await jpost(`/api/projects/${S.project.id}/stills/regenerate`,
+      {scene:n, prompt:prompt||null, seed:seedRaw?+seedRaw:null});
+    await refreshProject(true); toast('Scene '+n+' image regenerated.');
+  }catch(e){ fail(e); }
+}
+function pickReplaceStill(n){
+  const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*';
+  inp.onchange=async()=>{
+    const f=inp.files&&inp.files[0]; if(!f) return;
+    try{
+      const [up]=await uploadStaged([f]);
+      if(!up) throw new Error('Upload failed.');
+      await jpost(`/api/projects/${S.project.id}/stills/replace`,
+        {scene:n, path:up.path});
+      S.files=null;
+      await refreshProject(true);
+      toast(`Scene ${n} image imported — approve it to unlock the video.`);
+    }catch(err){ fail(err); }
+  };
+  inp.click();
+}
+function pickSheet(){
+  const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*';
+  inp.onchange=async()=>{
+    const f=inp.files&&inp.files[0]; if(!f) return;
+    try{
+      const [up]=await uploadStaged([f]);
+      if(!up) throw new Error('Upload failed.');
+      await jpost(`/api/projects/${S.project.id}/character/sheet`,{path:up.path});
+      S.files=null;
+      await refreshProject(true);
+      toast('Character sheet imported — every scene will use this face.');
+    }catch(err){ fail(err); }
+  };
+  inp.click();
+}
+async function duplicateProject(){
+  try{
+    const r=await jpost(`/api/projects/${S.project.id}/duplicate`,{});
+    await refreshProjects();
+    if(r.id) await openProject(r.id);
+    toast('Project duplicated.');
+  }catch(e){ fail(e); }
+}
+async function deleteProject(){
+  const p=S.project;
+  const ok=await askConfirm('Delete this project?',
+    `${p.name||'This project'} and every file it owns will be removed from disk. This cannot be undone.`,
+    'Delete project');
+  if(!ok) return;
+  try{
+    await jpost(`/api/projects/${p.id}/delete`,{});
+    if(localStorage.getItem('lastProject')===p.id) localStorage.removeItem('lastProject');
+    await refreshProjects();
+    showHome();
+    toast('Project deleted.');
+  }catch(e){ fail(e); }
+}
+async function genStills(scenes){
+  try{
+    await jpost(`/api/projects/${S.project.id}/stills`, scenes?{scenes}:{});
+    await refreshProject(true); toast('Image generation started.');
+  }catch(e){ fail(e); }
+}
+async function approveStill(n){
+  try{
+    await jpost(`/api/projects/${S.project.id}/stills/approve`,{scene:n});
+    await refreshProject(true); toast('Scene '+n+' approved.');
+  }catch(e){ fail(e); }
+}
+async function genCharacter(){
+  const description=($('#ch_desc')?.value||'').trim();
+  try{
+    await jpost(`/api/projects/${S.project.id}/character`,{description});
+    await refreshProject(true); toast('Character sheet generation started.');
+  }catch(e){ fail(e); }
+}
+
+/* ------------------------------------------------------------ videos */
+function renderVideos(box,p){
+  const scenes=p.stage01?.storyboard?.scenes||[];
+  const s3=p.stage03||{}, job=p.job||{};
+  const sel=S.sel.videos;
+  if(!scenes.length){
+    box.innerHTML=`<div class="card"><div class="empty"><div class="eico">▶</div>
+      <h3>No scenes yet</h3><p>Approve a storyboard before rendering video.</p>
+      <div class="acts"><button class="btn primary" onclick="goTab('plan')">Open storyboard</button></div></div></div>`;
+    return;
+  }
+  const cards=scenes.map(s=>{
+    const e=(s3.scenes||{})[String(s.n)]||{};
+    const approved=p.stage02?.scenes?.[String(s.n)]?.approved;
+    const media=e.file?`<video src="${fileUrl(p.id,e.file)}#t=1" preload="metadata" muted playsinline
+      data-act="preview" data-path="${esc(e.file)}" style="cursor:zoom-in"></video>
+      <div class="playbadge">▶</div>`
+      :`<div class="empty">${approved?'Not rendered':'Approve a still first'}</div>`;
+    return `<article class="scene">
+      <div class="thumb">
+        ${media}
+        <div class="overlay">
+          <label class="pick"><input type="checkbox" data-pick="videos" data-n="${s.n}" ${sel.has(s.n)?'checked':''}/></label>
+          ${chip(e.status||'not_started')}
+        </div>
+      </div>
+      <div class="sbody">
+        <div class="sn"><b>Scene ${s.n}</b><span class="mono">${esc(s.seconds)}s</span></div>
+        <div class="prompt" title="${esc(s.video_prompt||'')}">${esc(s.video_prompt||'No prompt')}</div>
+        <div class="meta">
+          ${e.duration?`<span>${e.duration}s</span><span>${e.width}×${e.height}</span><span>${e.fps}fps</span>`:''}
+          ${e.steps?`<span>${e.steps} steps${e.turbo?' · turbo':''}</span>`:''}
+          ${e.seed!=null?`<span>seed ${e.seed}</span>`:''}
+        </div>
+        ${(e.qc||[]).map(q=>`<div class="qcline ${q.level==='error'?'err':''}">${esc(q.msg)}</div>`).join('')}
+        ${e.error?`<div class="qcline err">${esc(e.error)}</div>`:''}
+        <div class="acts">
+          <button class="btn sm ghost" data-act="regen-video" data-n="${s.n}">${e.file?'Regenerate':'Generate'}</button>
+          ${e.file?`<a class="btn sm ghost" href="${dlUrl(p.id,e.file)}" download>Save</a>`:''}
+        </div>
+      </div></article>`;
+  }).join('');
+  box.innerHTML=`
+    <div class="card">
+      <div class="card-head">
+        <div><h3>Render settings</h3>
+          <p class="sub">Quality and resolution are separate knobs. Draft resolution with turbo off looks far more photographic — it costs ~3¼ min per scene.</p></div>
+      </div>
+      <div class="grid c4">
+        <div><label>Render size</label><select id="v_profile">
+          <option value="draft" ${S.settings?.video_profile==='draft'?'selected':''}>Draft · 384×672</option>
+          <option value="standard" ${S.settings?.video_profile==='standard'?'selected':''}>Standard · 576×1008</option>
+          <option value="high" ${S.settings?.video_profile==='high'?'selected':''}>High · 768×1344</option>
+        </select></div>
+        <div><label>Turbo LoRA</label><select id="v_turbo">
+          <option value="0" ${!S.settings?.video_turbo?'selected':''}>Off — quality (recommended)</option>
+          <option value="1" ${S.settings?.video_turbo?'selected':''}>On — fast, plastic</option>
+        </select></div>
+        <div><label>Steps</label><input id="v_steps" type="number" min="4" max="50" value="${esc(S.settings?.video_steps||20)}"/></div>
+        <div><label>Speech</label><select id="v_audio">
+          <option value="native" ${S.settings?.audio_mode==='native'?'selected':''}>Native H3 audio</option>
+          <option value="tts" ${S.settings?.audio_mode==='tts'?'selected':''}>Replace with Gemini TTS</option>
+        </select></div>
+      </div>
+      <div class="field-row" style="margin-top:14px">
+        <button class="btn sm" data-act="save-render">Save render settings</button>
+        <span class="mono" id="v_msg"></span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <div><h3>Scene videos</h3><p class="sub">Image-to-video from approved stills · one scene at a time · ${esc(s3.resolution||'')}</p></div>
+        <div class="field-row">
+          ${sel.size?`<span class="badge">${sel.size} selected</span>`:''}
+          <button class="btn sm" data-act="gen-selected-videos" ${sel.size?'':'disabled'}>Generate selected</button>
+          <button class="btn primary sm" data-act="gen-all-videos">Generate all</button>
+        </div>
+      </div>
+      ${job.running&&job.kind==='videos'?`<div class="notice ok"><span class="spin"></span> Rendering video…</div>`:''}
+      <div class="scenes">${cards}</div>
+    </div>`;
+}
+async function genVideos(scenes){
+  try{
+    await jpost(`/api/projects/${S.project.id}/videos`, scenes?{scenes}:{});
+    await refreshProject(true); toast('Video rendering started.');
+  }catch(e){ fail(e); }
+}
+function openRegenVideo(n){
+  const e=(S.project.stage03?.scenes||{})[String(n)]||{};
+  openModal(`
+    <div class="sheet-head"><div><h3>Render scene ${n}</h3>
+      <p>A different seed gives a different take of the same shot.</p></div></div>
+    <div class="sheet-body">
+      <div class="grid c2">
+        <div><label>Seed</label><input id="rv_seed" type="number" value="${esc(e.seed??42)}"/></div>
+        <div><label>Current</label><div class="mono" style="padding-top:10px">${e.file?`${esc(e.duration)}s · ${esc(e.steps)} steps · seed ${esc(e.seed)}`:'not rendered'}</div></div>
+      </div>
+      <div class="notice warn" style="margin-bottom:0">Render settings come from the card above. Save them first if you changed anything.</div>
+    </div>
+    <div class="sheet-foot">
+      <button class="btn ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn primary" onclick="doRegenVideo(${n})">Render scene</button>
+    </div>`);
+}
+async function doRegenVideo(n){
+  const seed=$('#rv_seed').value.trim();
+  closeModal();
+  try{
+    await jpost(`/api/projects/${S.project.id}/videos`,
+      {scenes:[n], seeds: seed ? {[n]: +seed} : null});
+    await refreshProject(true); toast('Scene '+n+' rendering.');
+  }catch(e){ fail(e); }
+}
+async function saveRenderSettings(){
+  try{
+    await jpost('/api/settings',{
+      video_profile:$('#v_profile').value,
+      video_turbo:$('#v_turbo').value==='1',
+      video_steps:+$('#v_steps').value||0,
+      audio_mode:$('#v_audio').value
+    });
+    S.settings=await api('/api/settings');
+    $('#v_msg').innerHTML='<span style="color:var(--ok)">Saved.</span>';
+    toast('Render settings saved.');
+  }catch(e){ fail(e); }
+}
+
+/* ------------------------------------------------------------ export */
+function renderExport(box,p){
+  const ex=(p.stage04?.exports)||[];
+  const f=p.stage01?.fields||{};
+  const brand=String(f.brand||'').trim().replace(/^(unknown|none|n\/a|null|-|—)$/i,'') || p.name || '';
+  const cta=String(f.cta||'').trim().replace(/^(unknown|none|n\/a|null|-|—)$/i,'');
+  const hasScript=(p.stage01?.storyboard?.scenes||[]).some(s=>String(s.script||'').trim());
+  const ready=Object.values(p.stage03?.scenes||{}).filter(x=>x.file).length;
+  box.innerHTML=`
+    <div class="card">
+      <div class="card-head"><div><h3>Final advertisement</h3>
+        <p class="sub">Completed scenes are normalised to one canvas and stitched. Text is burned in as real pixels afterwards, so it can never distort like model-drawn lettering.</p></div>
+        <span class="chip ${ready?'ok':''}"><i></i>${ready} clip(s) ready</span></div>
+      <div class="grid c3">
+        <label style="display:flex;align-items:center;gap:9px;text-transform:none;font-size:13.5px;color:var(--text);margin:0">
+          <input type="checkbox" id="ov_brand" ${brand?'checked':''} ${brand?'':'disabled'}/>
+          Brand name ${brand?`— “${esc(brand)}”`:'(none)'}</label>
+        <label style="display:flex;align-items:center;gap:9px;text-transform:none;font-size:13.5px;color:var(--text);margin:0">
+          <input type="checkbox" id="ov_cta" ${cta?'checked':''} ${cta?'':'disabled'}/>
+          Call to action ${cta?`— “${esc(cta)}”`:'(none in brief)'}</label>
+        <label style="display:flex;align-items:center;gap:9px;text-transform:none;font-size:13.5px;color:var(--text);margin:0">
+          <input type="checkbox" id="ov_caps" ${hasScript?'checked':''} ${hasScript?'':'disabled'}/>
+          Scene captions ${hasScript?'— each line':' (no dialogue)'}</label>
+      </div>
+      <div class="field-row" style="margin-top:18px">
+        <button class="btn primary" data-act="do-export" ${ready?'':'disabled'}>Build final video</button>
+        <span class="mono">${ready?`~${Math.max(10,Math.round(ready*1.2))}s to stitch`:'render at least one clip first'}</span>
+      </div>
+      <div id="exmsg"></div>
+    </div>
+    ${ex.length?`<div class="card"><h3>Exports</h3><p class="sub">Newest first.</p>
+      ${ex.slice().reverse().map(e=>`
+        <div style="display:flex;gap:18px;flex-wrap:wrap;padding:14px 0;border-top:1px solid var(--line-soft)">
+          <video src="${fileUrl(p.id,e.file)}" controls preload="metadata"
+            style="width:100%;max-width:300px;border-radius:11px;border:1px solid var(--line);background:#000"></video>
+          <div style="flex:1;min-width:200px">
+            <b style="font-size:13.5px">${esc(e.file.split('/').pop())}</b>
+            <div class="mono" style="margin-top:6px">${e.width}×${e.height} · ${e.duration}s · ${e.size_mb} MB<br>scenes ${esc((e.scenes||[]).join(', '))}<br>${esc(timeAgo(e.created))}</div>
+            <div class="field-row" style="margin-top:10px">
+              <a class="btn sm" href="${dlUrl(p.id,e.file)}" download>Download</a>
+              <button class="btn sm ghost" data-act="preview" data-path="${esc(e.file)}">Preview</button>
+            </div>
+          </div>
+        </div>`).join('')}</div>`:`<div class="card"><div class="empty"><div class="eico">⇩</div>
+          <h3>No exports yet</h3><p>Once at least one scene is rendered you can stitch the final cut.</p></div></div>`}`;
+}
+async function doExport(){
+  const p=S.project, f=p.stage01?.fields||{};
+  const overlays=[];
+  if($('#ov_brand')?.checked && (f.brand||p.name)) overlays.push({text:f.brand||p.name,pos:'top',size:0.055,bold:true});
+  if($('#ov_cta')?.checked && f.cta) overlays.push({text:String(f.cta).replace(/^\s*(call\s*-?\s*to\s*-?\s*action|cta)\s*[:\-–]\s*/i,'').replace(/\.$/,''),pos:'lower',size:0.05,bold:true});
+  const captions=$('#ov_caps')?.checked ?? true;
+  const msg=$('#exmsg');
+  if(msg) msg.innerHTML='<div class="notice ok"><span class="spin"></span> Stitching…</div>';
+  try{
+    await jpost(`/api/projects/${p.id}/export`,{overlays,captions});
+    await refreshProject(true); goTab('export'); toast('Final video built.');
+  }catch(e){ if(msg) msg.innerHTML=`<div class="notice err">${esc(e.message)}</div>`; fail(e); }
+}
+
+/* ------------------------------------------------------------ files */
+async function renderFiles(box,p){
+  if(!S.files){
+    box.innerHTML=`<div class="card"><div class="skeleton" style="height:120px"></div></div>`;
+    try{ S.files=await api(`/api/projects/${p.id}/files`); }catch(e){
+      box.innerHTML=`<div class="card"><div class="notice err">${esc(e.message)}</div></div>`; return; }
+  }
+  const all=S.files.files||[];
+  const f=S.fileFilter;
+  const shown=f==='all'?all:all.filter(x=>x.kind===f);
+  const counts={all:all.length,image:all.filter(x=>x.kind==='image').length,
+    video:all.filter(x=>x.kind==='video').length,audio:all.filter(x=>x.kind==='audio').length,
+    text:all.filter(x=>x.kind==='text').length,file:all.filter(x=>x.kind==='file').length};
+  const ICON={image:'IMG',video:'VID',audio:'WAV',text:'TXT',file:'BIN'};
+  const rows=shown.map(x=>`
+    <div class="frow">
+      <div class="fico">${ICON[x.kind]||'BIN'}</div>
+      <div class="fname"><b>${esc(x.name)}</b><span>${esc(x.dir||'root')}</span></div>
+      <div class="fsize">${fmtSize(x.size)}</div>
+      <div class="fdate">${esc(timeAgo(x.modified))}</div>
+      <div class="facts">
+        ${x.kind==='image'||x.kind==='video'?`<button class="iconbtn" title="Preview" data-act="preview" data-path="${esc(x.path)}">◉</button>`:''}
+        <a class="iconbtn" title="Download" href="${dlUrl(p.id,x.path)}" download>↓</a>
+        <button class="iconbtn" title="Delete" data-act="del-file" data-path="${esc(x.path)}">×</button>
+      </div>
+    </div>`).join('');
+  box.innerHTML=`
+    <div class="card">
+      <div class="card-head">
+        <div><h3>Project files</h3>
+          <p class="sub">${S.files.count} files · ${S.files.total_mb} MB · ${esc(S.files.root)}</p></div>
+        <div class="field-row">
+          <button class="btn sm" data-act="reveal-files">Open folder</button>
+        </div>
+      </div>
+      <div class="grid c3" style="margin-bottom:16px">
+        <div><label>Add product images</label>
+          <div class="dz slim" data-drop-kind="products" data-accept="image"><b>Drop</b><span class="hint">or click</span></div></div>
+        <div><label>Add creator images</label>
+          <div class="dz slim" data-drop-kind="creators" data-accept="image"><b>Drop</b><span class="hint">or click</span></div></div>
+        <div><label>Add extra files</label>
+          <div class="dz slim" data-drop-kind="extra" data-accept="image"><b>Drop</b><span class="hint">or click</span></div></div>
+      </div>
+      <div class="filters">
+        ${['all','image','video','audio','text','file'].map(k=>counts[k]||k==='all'
+          ?`<button class="fchip ${f===k?'active':''}" data-act="filter-files" data-kind="${k}">${k==='all'?'All':k[0].toUpperCase()+k.slice(1)} <span class="dim">${counts[k]||0}</span></button>`:'').join('')}
+      </div>
+      <div style="border:1px solid var(--line);border-radius:12px;overflow:hidden">
+        ${rows||`<div class="empty" style="padding:36px"><div class="eico">∅</div><h3>Nothing here</h3><p>No ${f==='all'?'files':f+' files'} in this project yet.</p></div>`}
+      </div>
+    </div>`;
+}
+async function deleteFile(path){
+  const ok=await askConfirm('Delete file?', `${path} — this also clears any reference to it in the project.`, 'Delete');
+  if(!ok) return;
+  try{
+    await jpost(`/api/projects/${S.project.id}/files/delete`,{path});
+    S.files=null; await refreshProject(true); goTab('files'); toast('File deleted.');
+  }catch(e){ fail(e); }
+}
+function previewFile(path){
+  const url=fileUrl(S.project.id,path);
+  const ext=(path.split('.').pop()||'').toLowerCase();
+  const isVideo=['mp4','webm','mov','mkv','m4v'].includes(ext);
+  const isImage=['png','jpg','jpeg','webp','bmp','gif'].includes(ext);
+  const isAudio=['wav','mp3','flac','m4a','ogg'].includes(ext);
+  openModal(`
+    <div class="sheet-head"><div><h3>${esc(path.split('/').pop())}</h3>
+      <p class="mono">${esc(path)}</p></div></div>
+    <div class="sheet-body" style="display:grid;place-items:center;background:#050607">
+      ${isVideo?`<video src="${url}" controls autoplay style="max-width:100%;max-height:64vh;border-radius:10px"></video>`
+        :isImage?`<img src="${url}" style="max-width:100%;max-height:64vh;border-radius:10px"/>`
+        :isAudio?`<audio src="${url}" controls style="width:100%"></audio>`
+        :`<div class="notice warn" style="margin:0">No inline preview for this file type.</div>`}
+    </div>
+    <div class="sheet-foot">
+      <a class="btn" href="${dlUrl(S.project.id,path)}" download>Download</a>
+      <button class="btn ghost" onclick="closeModal()">Close</button>
+    </div>`, true);
+}
+
+/* ------------------------------------------------------------ inventory */
+async function showInventory(){
+  S.view='inv'; stopPolling();
+  $('#main').innerHTML=`<div class="topbar"><div><div class="crumb">System</div>
+    <h2>Model inventory</h2><div class="meta">Detected live from the running ComfyUI.</div></div></div>
+    <div class="card"><div class="skeleton" style="height:160px"></div></div>`;
+  try{
+    const inv=await api('/api/inventory'); S.inv=inv;
+    const m=inv.models||{}, h=inv.hardware||{}, c=inv.comfy||{}, dev=(h.devices||[])[0]||{};
+    $('#main').innerHTML=`
+      <div class="topbar"><div><div class="crumb">System</div><h2>Model inventory</h2>
+        <div class="meta">Detected live from the running ComfyUI.</div></div>
+        <div class="actions"><button class="btn sm" onclick="showHome()">Back</button></div></div>
+      <div class="card"><h3>Hardware</h3><p class="sub">What this machine can do.</p>
+        <div class="grid c4">
+          <div><label>GPU</label><div style="font-size:13px">${esc((dev.name||'?').replace(/^cuda:\d+\s*/,''))}</div><div class="mono">${dev.vram_total_gb||'?'} GB</div></div>
+          <div><label>Free VRAM</label><div style="font-size:13px">${dev.vram_free_gb||'?'} GB</div></div>
+          <div><label>RAM</label><div style="font-size:13px">${h.ram_total_gb||'?'} GB</div><div class="mono">${h.ram_free_gb||'?'} GB free</div></div>
+          <div><label>Disk free</label><div style="font-size:13px">${Object.entries(h.disk_free_gb||{}).map(([d,g])=>`${esc(d)}: ${g} GB`).join(' · ')||'?'}</div></div>
+        </div></div>
+      <div class="card"><h3>Installed models</h3>
+        ${Object.entries(m).map(([k,v])=>`<div style="margin-bottom:14px"><label>${esc(k.replace(/_/g,' '))}</label>
+          <div class="mono" style="line-height:1.7">${(v||[]).map(esc).join('<br>')||'—'}</div></div>`).join('')}</div>
+      <div class="card"><h3>Optional models</h3><p class="sub">Nothing is required. Each lists what it adds and its size.</p>
+        ${(inv.optional_models||[]).map(o=>`<div style="border-top:1px solid var(--line-soft);padding:12px 0">
+          <div class="field-row" style="justify-content:space-between">
+            <b style="font-size:13px">${esc(o.name)}</b>
+            <span class="chip ${o.present?'ok':''}"><i></i>${o.present?'installed':'not installed'}</span></div>
+          <div class="mono" style="margin-top:4px">${esc(o.folder)} · ${o.size_gb} GB</div>
+          <div class="mono" style="margin-top:4px;line-height:1.6">${esc(o.adds)}<br>${esc(o.why)}</div></div>`).join('')}</div>
+      <div class="card"><h3>Not recommended</h3>
+        ${(inv.incompatible_models||[]).map(x=>`<div style="margin-bottom:12px"><b style="font-size:13px">${esc(x.name)}</b>
+          <div class="mono" style="margin-top:3px">${esc(x.reason)}</div></div>`).join('')}</div>
+      <div class="card"><h3>Generation profiles</h3>
+        ${Object.entries(inv.profiles||{}).map(([k,v])=>`<div style="margin-bottom:12px">
+          <b style="font-size:13px">${esc(v.label)}</b>
+          <span class="mono"> · ${v.short_edge}px short edge · ${v.steps} steps</span>
+          <div class="mono" style="margin-top:2px">${esc(v.note)}</div></div>`).join('')}
+        <div class="notice ok">Recommended for this machine: <b>${esc(inv.recommended_profile)}</b></div></div>`;
+  }catch(e){ $('#main').innerHTML=`<div class="card"><div class="notice err">${esc(e.message)}</div></div>`; }
+}
+
+/* ------------------------------------------------------------ settings */
+async function showSettings(){
+  S.view='set'; stopPolling();
+  $('#main').innerHTML=`<div class="topbar"><div><div class="crumb">Studio</div><h2>Settings</h2>
+    <div class="meta">Stored locally on this machine only.</div></div></div>
+    <div class="card"><div class="skeleton" style="height:200px"></div></div>`;
+  try{
+    const [s, inv, ll, charsRes] = await Promise.all([
+      api('/api/settings'), api('/api/inventory'), api('/api/llm/status'), api('/api/characters')]);
+    S.settings=s; S.inv=inv; S.chars=charsRes.characters||[];
+    const chars=S.chars;
+    $('#main').innerHTML=`
+      <div class="topbar"><div><div class="crumb">Studio</div><h2>Settings</h2>
+        <div class="meta">Stored locally on this machine only.</div></div>
+        <div class="actions"><button class="btn sm" onclick="showHome()">Back</button></div></div>
+
+      <div class="card">
+        <div class="card-head"><div><h3>AI planner</h3>
+          <p class="sub">The planner writes the storyboard. It is optional — the built-in rule-based planner works offline.</p></div>
+          <span class="chip ${ll.has_gemini_key?'ok':'warn'}"><i></i>${ll.has_gemini_key?'Gemini ready':ll.has_openrouter_key?'OpenRouter only':'Offline rules'}</span></div>
+        <div class="grid c3">
+          <div><label>Mode</label><select id="s_mode">
+            <option value="auto" ${s.llm_mode==='auto'?'selected':''}>Automatic (recommended)</option>
+            <option value="local" ${s.llm_mode==='local'?'selected':''}>Local only</option>
+            <option value="cloud" ${s.llm_mode==='cloud'?'selected':''}>Cloud only</option></select></div>
+          <div><label>Gemini model</label><input id="s_gmodel" value="${esc(s.gemini_model||'gemini-3.8-flash')}"/></div>
+          <div><label>Gemini key</label><input id="s_gkey" type="password" placeholder="${s.gemini_key_masked?esc(s.gemini_key_masked):'paste Gemini API key'}"/></div>
+        </div>
+        <div class="grid c3" style="margin-top:14px">
+          <div><label>OpenRouter key</label><input id="s_key" type="password" placeholder="${s.openrouter_key_masked?esc(s.openrouter_key_masked):'optional fallback'}"/></div>
+          <div><label>OpenRouter model</label><select id="s_model"><option value="">Auto (best free)</option>
+            ${(ll.free_models||[]).map(m=>`<option value="${esc(m.id)}" ${s.openrouter_model===m.id?'selected':''}>${esc(m.name)}${m.vision?' · vision':''}</option>`).join('')}</select></div>
+          <div><label>ComfyUI URL</label><input id="s_comfy" value="${esc(s.comfy_url||'')}"/></div>
+        </div>
+        <div class="field-row" style="margin-top:14px">
+          <button class="btn sm" onclick="testLLM()">Test planner</button>
+          <button class="btn sm danger" onclick="clearKey()">Forget OpenRouter key</button>
+          <span class="mono" id="s_llmmsg"></span>
+        </div>
+        <div class="mono" style="margin-top:12px">
+          Ollama ${ll.ollama?.available?'running':'not running'} · LM Studio ${ll.lmstudio?.available?'running':'not running'}
+          · OpenRouter ${ll.has_openrouter_key?'configured':'not set'} · Gemini ${ll.has_gemini_key?'configured':'not set'}
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Generation defaults</h3>
+        <p class="sub">Video quality and render size are separate knobs. Turbo is an 8-pass distilled model: fast, but it cannot resolve skin texture.</p>
+        <div class="grid c4">
+          <div><label>Image profile</label><select id="s_profile">
+            ${Object.entries(inv.profiles||{}).map(([k,v])=>`<option value="${k}" ${s.profile===k?'selected':''}>${esc(v.label)}</option>`).join('')}</select></div>
+          <div><label>Video render size</label><select id="s_vprofile">
+            ${Object.entries(inv.profiles||{}).map(([k,v])=>`<option value="${k}" ${s.video_profile===k?'selected':''}>${esc(v.label)} · ${v.short_edge}px</option>`).join('')}</select></div>
+          <div><label>Video sampler</label><select id="s_turbo">
+            <option value="0" ${!s.video_turbo?'selected':''}>Quality — turbo off, ~20 steps</option>
+            <option value="1" ${s.video_turbo?'selected':''}>Fast — turbo on, 8–12 steps</option></select></div>
+          <div><label>Steps (0 = auto)</label><input id="s_steps" type="number" min="0" max="50" value="${esc(s.video_steps||0)}"/></div>
+        </div>
+        <div class="grid c4" style="margin-top:14px">
+          <div><label>Audio</label><select id="s_audio">
+            <option value="native" ${s.audio_mode==='native'?'selected':''}>Native H3 speech</option>
+            <option value="tts" ${s.audio_mode==='tts'?'selected':''}>Gemini TTS track</option></select></div>
+          <div><label>Speech reference</label><select id="s_tts">
+            <option value="1" ${s.tts_enabled!==false?'selected':''}>Generate per scene</option>
+            <option value="0" ${s.tts_enabled===false?'selected':''}>Use native only</option></select></div>
+          <div><label>Voice</label><input id="s_voice" value="${esc(s.tts_voice||'Kore')}"/></div>
+          <div><label>Creator character</label><select id="s_char">${charOptions(chars,s.character)}</select></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><div><h3>Creator library</h3>
+          <p class="sub">A reusable Omnichar <span class="mono">.char</span> holds face, body, outfit and voice. Videos load it by name, so the same person appears in every scene.</p></div>
+          <button class="btn sm" onclick="revealCharacters()">Open folder</button></div>
+        <div style="border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:18px">
+          ${chars.length?chars.map(c=>`<div class="frow" style="grid-template-columns:34px minmax(0,1fr) 84px 120px">
+            <div class="fico">ID</div>
+            <div class="fname"><b>${esc(c.name)}</b><span>${c.size_mb} MB · ${timeAgo(c.modified)}</span></div>
+            <div class="fsize">${s.character===c.name?'<span class="chip ok"><i></i>in use</span>':''}</div>
+            <div class="facts">
+              <button class="btn sm ghost" data-act="use-char" data-char="${esc(c.name)}">${s.character===c.name?'Selected':'Use'}</button>
+              <button class="iconbtn" title="Delete" data-act="del-char" data-char="${esc(c.name)}">×</button>
+            </div></div>`).join('')
+          :`<div class="empty" style="padding:30px"><div class="eico">ID</div><h3>No characters installed</h3>
+             <p>Create one below — videos will fall back to the approved still until you do.</p></div>`}
+        </div>
+        <div class="sep"></div>
+        <h3 style="font-size:14px;margin-bottom:10px">Create a character</h3>
+        <div class="grid c2">
+          <div><label>Name</label><input id="c_name" placeholder="e.g. ananya — becomes ananya.char"/></div>
+          <div><label>Voice clip (optional)</label>
+            <div class="dz slim" id="c_voice_dz"><b>Drop a 3–30 s clip</b><span class="hint">wav / mp3</span></div>
+            <div id="c_voice_list" class="refs"></div></div>
+        </div>
+        <div style="margin-top:12px"><label>Description</label>
+          <textarea id="c_desc" rows="3" placeholder="Age, build, hair, skin tone, outfit — this is the text identity lock."></textarea></div>
+        <div class="grid c3" style="margin-top:12px">
+          ${['face','body','cloths'].map(role=>`<div>
+            <label>${role==='cloths'?'Outfit':role[0].toUpperCase()+role.slice(1)} images</label>
+            <div class="dz" data-char-drop="${role}"><b>Drop 1–3</b><span class="hint">png / jpg</span></div>
+            <div class="refs" id="c_${role}_list"></div></div>`).join('')}
+        </div>
+        <p class="mono" style="margin-top:10px">Images up to 64 MPix · voice 3–30 s, mono or stereo, 8–192 kHz · voice is a likeness, not a clone · get consent for real people.</p>
+        <div class="field-row" style="margin-top:12px">
+          <button class="btn primary" onclick="createCharacter()">Create character</button>
+          <span class="mono" id="c_msg"></span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Privacy</h3>
+        <p class="sub">Cloud planning sends brief text only. Images are never uploaded to the planner.</p>
+        <label style="display:flex;gap:10px;align-items:center;text-transform:none;font-size:13.5px;color:var(--text);margin:0">
+          <input type="checkbox" id="s_cloud" ${s.allow_cloud_refs?'checked':''}/>
+          Allow sending brief text to a cloud model</label>
+      </div>
+
+      <div class="savebar">
+        <span class="msg" id="s_msg">Changes apply to new generations.</span>
+        <button class="btn primary" onclick="saveSettings()">Save settings</button>
+      </div>`;
+    bindCharDrops();
+  }catch(e){ $('#main').innerHTML=`<div class="card"><div class="notice err">${esc(e.message)}</div></div>`; }
+}
+function charOptions(list,selected){
+  return `<option value="">None — approved still only</option>`+
+    (list||[]).map(c=>`<option value="${esc(c.name)}" ${selected===c.name?'selected':''}>${esc(c.name)} · ${c.size_mb} MB</option>`).join('');
+}
+function bindCharDrops(){
+  $$('[data-char-drop]').forEach(dz=>{
+    const role=dz.dataset.charDrop;
+    dz.onclick=()=>pickCharFiles(role);
+    dz.ondragover=e=>{e.preventDefault();dz.classList.add('over');};
+    dz.ondragleave=()=>dz.classList.remove('over');
+    dz.ondrop=e=>{e.preventDefault();dz.classList.remove('over');stageCharFiles(role,e.dataTransfer.files);};
+  });
+  const vz=$('#c_voice_dz');
+  if(vz){
+    vz.onclick=()=>{
+      const inp=document.createElement('input'); inp.type='file'; inp.accept='audio/*';
+      inp.onchange=()=>stageCharFiles('voice',inp.files); inp.click();
+    };
+    vz.ondragover=e=>{e.preventDefault();vz.classList.add('over');};
+    vz.ondragleave=()=>vz.classList.remove('over');
+    vz.ondrop=e=>{e.preventDefault();vz.classList.remove('over');stageCharFiles('voice',e.dataTransfer.files);};
+  }
+  renderCharDraft();
+}
+function pickCharFiles(role){
+  const inp=document.createElement('input'); inp.type='file'; inp.multiple=true; inp.accept='image/*';
+  inp.onchange=()=>stageCharFiles(role,inp.files); inp.click();
+}
+async function stageCharFiles(role,files){
+  if(!files||!files.length) return;
+  try{
+    if(role==='voice'){
+      if(files.length>1) return toast('Pick a single voice clip.','err');
+      const [f]=await uploadStaged([files[0]]);
+      S.charDraft.voice=f?.path||null;
+    }else{
+      const room=3-(S.charDraft[role]||[]).length;
+      if(room<=0) return toast('Three images is the maximum for this role.','err');
+      const up=await uploadStaged(Array.from(files).slice(0,room));
+      S.charDraft[role]=(S.charDraft[role]||[]).concat(up);
+    }
+    renderCharDraft();
+  }catch(e){ fail(e); }
+}
+function renderCharDraft(){
+  const map={face:'#c_face_list',body:'#c_body_list',cloths:'#c_cloths_list'};
+  Object.entries(map).forEach(([role,sel])=>{
+    const box=$(sel); if(!box) return;
+    const items=S.charDraft[role]||[];
+    box.innerHTML=items.map((f,i)=>`<div class="ref">
+      <img src="${stagedUrl(f.path)}" alt="" onerror="this.style.display='none'"/>
+      <span class="tag" title="${esc(f.name)}">${esc(f.name)}</span>
+      <button class="x" onclick="S.charDraft.${role}.splice(${i},1);renderCharDraft()">×</button>
+    </div>`).join('');
+  });
+  const vl=$('#c_voice_list');
+  if(vl){
+    const v=S.charDraft.voice;
+    vl.innerHTML=v?`<div class="ref" style="width:auto">
+      <span class="badge">${esc(v.split(/[\\\\/]/).pop())}</span>
+      <button class="x" style="position:static;margin-left:6px;display:inline-grid"
+        onclick="S.charDraft.voice=null;renderCharDraft()">×</button></div>`:'';
+  }
+}
+async function uploadStaged(files){
+  const fd=new FormData();
+  Array.from(files).forEach((f,i)=>fd.append('file'+i,f,f.name));
+  const r=await api('/api/upload',{method:'POST',body:fd});
+  return r.files||[];
+}
+async function createCharacter(){
+  const name=($('#c_name').value||'').trim();
+  const description=($('#c_desc').value||'').trim();
+  const d=S.charDraft;
+  const count=(d.face||[]).length+(d.body||[]).length+(d.cloths||[]).length;
+  const msg=$('#c_msg');
+  if(!name) return msg.innerHTML='<span style="color:var(--err)">Give the character a name.</span>';
+  if(!description) return msg.innerHTML='<span style="color:var(--err)">A description is required — it is the text identity lock.</span>';
+  if(!count) return msg.innerHTML='<span style="color:var(--err)">Add at least one image.</span>';
+  msg.innerHTML='<span class="spin"></span> Encoding…';
+  try{
+    const r=await jpost('/api/characters',{
+      name, description,
+      face:(d.face||[]).map(x=>x.path),
+      body:(d.body||[]).map(x=>x.path),
+      cloths:(d.cloths||[]).map(x=>x.path),
+      voice:d.voice
+    });
+    // A new character is what the user just asked for, so select it at once
+    // instead of making them find a dropdown and save again.
+    await jpost('/api/settings',{character:r.char});
+    S.charDraft={face:[],body:[],cloths:[],voice:null};
+    toast(`Created ${r.char} — now selected for every project.`);
+    await refreshCharView();
+  }catch(e){ msg.innerHTML=`<span style="color:var(--err)">${esc(e.message)}</span>`; }
+}
+async function useCharacter(name){
+  try{
+    await jpost('/api/settings',{character:name});
+    toast(name?`Videos will use ${name}.`:'Character cleared — videos use the approved still.');
+    await refreshCharView();
+  }catch(e){ fail(e); }
+}
+async function deleteCharacter(name){
+  const ok=await askConfirm('Delete character?', `${name} will be removed from disk. Videos using it will fall back to the approved still.`, 'Delete');
+  if(!ok) return;
+  try{ await jpost('/api/characters/delete',{name}); toast('Character deleted.'); await refreshCharView(); }
+  catch(e){ fail(e); }
+}
+/* The library is its own tab now, but Settings still renders a copy of the
+   create form, so refresh whichever view the user is actually looking at. */
+function refreshCharView(){
+  return S.view==='chars' ? showCharacters() : showSettings();
+}
+async function showCharacters(){
+  S.view='chars'; stopPolling();
+  $('#main').innerHTML=`<div class="topbar"><div><div class="crumb">Studio</div>
+    <h2>Creator library</h2><div class="meta">Reusable identities, saved on this machine.</div></div></div>
+    <div class="card"><div class="skeleton" style="height:160px"></div></div>`;
+  try{
+    const [charsRes, s] = await Promise.all([api('/api/characters'), api('/api/settings')]);
+    const chars=charsRes.characters||[]; S.chars=chars; S.settings=s;
+    $('#main').innerHTML=`
+      <div class="topbar">
+        <div><div class="crumb">Studio</div><h2>Creator library</h2>
+          <div class="meta">A <span class="mono">.char</span> holds face, body, outfit and an optional voice clip. The selected one is used by every project's video step.</div></div>
+        <div class="actions">
+          <button class="btn sm" data-act="reveal-chars">Open folder</button>
+          <button class="btn sm" onclick="showHome()">Back</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div><h3>Installed characters</h3>
+          <p class="sub">${chars.length?`${chars.length} installed · newest first`:'Nothing installed yet'}</p></div>
+          <span class="chip ${s.character?'ok':'warn'}"><i></i>${s.character?esc(s.character)+' in use':'approved still only'}</span></div>
+        <div style="border:1px solid var(--line);border-radius:12px;overflow:hidden">
+        ${chars.length?chars.map(c=>`<div class="frow" style="grid-template-columns:34px minmax(0,1fr) 92px 170px">
+          <div class="fico">ID</div>
+          <div class="fname"><b>${esc(c.name)}</b><span>${c.size_mb} MB · created ${timeAgo(c.modified)}</span></div>
+          <div class="fsize">${s.character===c.name?'<span class="chip ok"><i></i>in use</span>':''}</div>
+          <div class="facts">
+            <button class="btn sm ghost" data-act="use-char" data-char="${esc(c.name)}">${s.character===c.name?'Selected':'Use'}</button>
+            ${s.character===c.name?`<button class="btn sm ghost" data-act="unuse-char">Clear</button>`:''}
+            <button class="iconbtn" title="Delete" data-act="del-char" data-char="${esc(c.name)}">×</button>
+          </div></div>`).join('')
+        :`<div class="empty" style="padding:34px"><div class="eico">ID</div><h3>No characters yet</h3>
+           <p>Create one below. Until you do, videos use the approved still as the only identity — which is usually what you want.</p></div>`}
+        </div>
+        <div class="notice warn" style="margin-bottom:0">Using a character adds its face and wardrobe on top of the approved still. If your still already shows the right person, leave the library cleared.</div>
+      </div>
+      <div class="card">
+        <h3>Create a character</h3>
+        <p class="sub">Images define the face and wardrobe, the description is the text identity lock, and the voice clip is an optional likeness reference. It is saved as <span class="mono">models/characters/&lt;name&gt;.char</span> and stays available for every future project.</p>
+        <div class="grid c2">
+          <div><label>Name</label><input id="c_name" placeholder="e.g. ananya — saved as ananya.char"/></div>
+          <div><label>Voice clip (optional)</label>
+            <div class="dz slim" id="c_voice_dz"><b>Drop a 3–30 s clip</b><span class="hint">wav / mp3</span></div>
+            <div id="c_voice_list" class="refs"></div></div>
+        </div>
+        <div style="margin-top:12px"><label>Description</label>
+          <textarea id="c_desc" rows="3" placeholder="Age, build, hair, skin tone, outfit — this is the text identity lock."></textarea></div>
+        <div class="grid c3" style="margin-top:12px">
+          ${['face','body','cloths'].map(role=>`<div>
+            <label>${role==='cloths'?'Outfit':role[0].toUpperCase()+role.slice(1)} images</label>
+            <div class="dz" data-char-drop="${role}"><b>Drop 1–3</b><span class="hint">png / jpg</span></div>
+            <div class="refs" id="c_${role}_list"></div></div>`).join('')}
+        </div>
+        <p class="mono" style="margin-top:10px">Images up to 64 MPix · voice 3–30 s, mono or stereo, 8–192 kHz · voice is a likeness, not a clone · get consent for real people.</p>
+        <div class="field-row" style="margin-top:12px">
+          <button class="btn primary" onclick="createCharacter()">Create character</button>
+          <span class="mono" id="c_msg"></span>
+        </div>
+      </div>`;
+    bindCharDrops();
+  }catch(e){ $('#main').innerHTML=`<div class="card"><div class="notice err">${esc(e.message)}</div></div>`; }
+}
+async function revealCharacters(){
+  try{
+    const s = await api('/api/settings');
+    await jpost('/api/reveal',{path:s.characters_dir});
+  }catch(e){ fail(e); }
+}
+async function saveSettings(){
+  const body={
+    llm_mode:$('#s_mode').value,
+    openrouter_model:$('#s_model').value,
+    comfy_url:$('#s_comfy').value.trim(),
+    profile:$('#s_profile').value,
+    video_profile:$('#s_vprofile').value,
+    video_turbo:$('#s_turbo').value==='1',
+    video_steps:+$('#s_steps').value||0,
+    audio_mode:$('#s_audio').value,
+    tts_enabled:$('#s_tts').value==='1',
+    tts_voice:$('#s_voice').value.trim()||'Kore',
+    character:$('#s_char').value,
+    allow_cloud_refs:$('#s_cloud').checked,
+    gemini_model:$('#s_gmodel').value.trim()||'gemini-3.8-flash'
+  };
+  const key=$('#s_key').value.trim(); if(key) body.openrouter_key=key;
+  const gkey=$('#s_gkey').value.trim(); if(gkey) body.gemini_key=gkey;
+  try{
+    await jpost('/api/settings',body);
+    S.settings=await api('/api/settings');
+    $('#s_msg').innerHTML='<span style="color:var(--ok)">Saved.</span>';
+    toast('Settings saved.'); await refreshHealth();
+  }catch(e){ $('#s_msg').innerHTML=`<span style="color:var(--err)">${esc(e.message)}</span>`; }
+}
+async function clearKey(){
+  const ok=await askConfirm('Forget OpenRouter key?','The fallback provider stops working until you add it again.','Forget');
+  if(!ok) return;
+  try{ await jpost('/api/settings',{clear_key:true}); toast('OpenRouter key removed.'); await showSettings(); }
+  catch(e){ fail(e); }
+}
+async function testLLM(){
+  const el=$('#s_llmmsg'); if(el) el.innerHTML='<span class="spin"></span> Testing…';
+  try{
+    const r=await jpost('/api/llm/test',{});
+    if(el) el.innerHTML = r.ok
+      ? `<span style="color:var(--ok)">${esc(r.model)} returned valid JSON.</span>`
+      : `<span style="color:var(--err)">Failed: ${esc(JSON.stringify(r.detail)).slice(0,180)}</span>`;
+  }catch(e){ if(el) el.innerHTML=`<span style="color:var(--err)">${esc(e.message)}</span>`; }
+}
+
+/* ------------------------------------------------------------ polling */
+function startPolling(){
+  stopPolling();
+  S.poll=setInterval(async ()=>{
+    if(S.view!=='project'||!S.project) return;
+    const p=S.project;
+    const busy=p.job?.running || ['stage02','stage03'].some(k=>['generating','planning'].includes(p[k]?.status));
+    if(!busy) return;
+    try{ await refreshProject(); }catch{}
+  },3500);
+}
+function stopPolling(){ if(S.poll) clearInterval(S.poll); S.poll=null; clearInterval(S.elapsed); }
+
+/* ------------------------------------------------------------ delegation */
+document.addEventListener('click', async e=>{
+  const t=e.target.closest('[data-act]');
+  if(!t) return;
+  const act=t.dataset.act, n=t.dataset.n?+t.dataset.n:null;
+  if(act==='approve-still'){ e.preventDefault(); return approveStill(n); }
+  if(act==='regen-still'){ e.preventDefault(); return openRegenStill(n); }
+  if(act==='replace-still'){ e.preventDefault(); return pickReplaceStill(n); }
+  if(act==='look-test'){ e.preventDefault(); return genStills([1]); }
+  if(act==='gen-all-stills'){ e.preventDefault(); return genStills(null); }
+  if(act==='gen-selected-stills'){ e.preventDefault(); return genStills([...S.sel.stills]); }
+  if(act==='gen-character'){ e.preventDefault(); return genCharacter(); }
+  if(act==='regen-video'){ e.preventDefault(); return openRegenVideo(n); }
+  if(act==='gen-all-videos'){ e.preventDefault(); return genVideos(null); }
+  if(act==='gen-selected-videos'){ e.preventDefault(); return genVideos([...S.sel.videos]); }
+  if(act==='save-render'){ e.preventDefault(); return saveRenderSettings(); }
+  if(act==='do-export'){ e.preventDefault(); return doExport(); }
+  if(act==='preview'){ e.preventDefault(); return previewFile(t.dataset.path); }
+  if(act==='del-file'){ e.preventDefault(); return deleteFile(t.dataset.path); }
+  if(act==='del-ref'){ e.preventDefault(); return deleteFile(t.dataset.path); }
+  if(act==='use-char'){ e.preventDefault(); return useCharacter(t.dataset.char); }
+  if(act==='del-char'){ e.preventDefault(); return deleteCharacter(t.dataset.char); }
+  if(act==='unuse-char'){ e.preventDefault(); return useCharacter(''); }
+  if(act==='reveal-chars'){ e.preventDefault(); return revealCharacters(); }
+  if(act==='duplicate-project'){ e.preventDefault(); return duplicateProject(); }
+  if(act==='delete-project'){ e.preventDefault(); return deleteProject(); }
+  if(act==='import-sheet'){ e.preventDefault(); return pickSheet(); }
+  if(act==='reveal-files'){
+    e.preventDefault();
+    try{ await jpost('/api/reveal',{path:S.files.root}); }catch(err){ fail(err); }
+    return;
+  }
+  if(act==='filter-files'){ e.preventDefault(); S.fileFilter=t.dataset.kind; return goTab('files'); }
+});
+document.addEventListener('change', e=>{
+  const p=e.target.closest('[data-pick]');
+  if(!p) return;
+  const set=S.sel[p.dataset.pick];
+  const n=+p.dataset.n;
+  p.checked?set.add(n):set.delete(n);
+  // Re-render only the batch buttons, keeping scroll and focus intact.
+  const p2=S.project;
+  const label=p.dataset.pick==='stills'?'stills':'videos';
+  const bar=p.closest('.card')?.querySelector('.field-row');
+  if(bar){
+    const old=bar.querySelector('.badge'); if(old) old.remove();
+    const btn=bar.querySelector(`[data-act="gen-selected-${label}"]`);
+    if(btn) btn.disabled=!set.size;
+    if(set.size){ const b=document.createElement('span'); b.className='badge'; b.textContent=set.size+' selected';
+      btn?.before(b); }
+  }
+});
+
+/* ------------------------------------------------------------ drag + drop */
+document.addEventListener('dragover', e=>{
+  const dz=e.target.closest('.dz');
+  if(dz){ e.preventDefault(); dz.classList.add('over'); }
+});
+document.addEventListener('dragleave', e=>{
+  const dz=e.target.closest('.dz');
+  if(dz) dz.classList.remove('over');
+});
+document.addEventListener('drop', e=>{
+  const dz=e.target.closest('.dz');
+  if(!dz) return;
+  e.preventDefault(); dz.classList.remove('over');
+  const kind=dz.dataset.dropKind;
+  if(kind && S.project) return uploadProjectFiles(S.project.id,kind,e.dataTransfer.files);
+});
+
+boot();
+</script>
+</body>
+</html>

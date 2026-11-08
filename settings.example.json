@@ -1,0 +1,23 @@
+{
+  "comfy_url": "http://127.0.0.1:8188",
+  "comfy_dir": "",
+  "llm_mode": "auto",
+  "openrouter_key": "",
+  "openrouter_model": "",
+  "allow_cloud_refs": false,
+  "profile": "standard",
+  "video_profile": "draft",
+  "video_turbo": false,
+  "video_steps": 20,
+  "audio_mode": "native",
+  "character": "",
+  "overlay_enabled": true,
+  "overlay_brand": true,
+  "overlay_cta": true,
+  "overlay_captions": true,
+  "gemini_key": "",
+  "gemini_model": "gemini-3.8-flash",
+  "tts_enabled": true,
+  "tts_voice": "Kore",
+  "last_model_check": 0
+}
