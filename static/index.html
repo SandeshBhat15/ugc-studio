@@ -910,6 +910,7 @@ function renderPlan(box,p){
             : '<div class="notice ok">Continuous take — one shot, the camera never cuts.</div>')
         : ''}
       ${qc.length?`<div class="notice warn">${qc.map(q=>'• '+esc(q.msg)).join('\n')}</div>`:''}
+      ${(sb.slop_flags||[]).length?`<div class="notice warn">${sb.slop_flags.map(f=>'- '+esc(f)).join('\n')}</div>`:''}
       <div class="tbl-wrap"><table class="tbl">
         <thead><tr><th>#</th><th>Sec</th><th>Purpose</th><th>Script</th><th>Image prompt</th><th>Video prompt</th><th></th></tr></thead>
         <tbody>${rows}</tbody></table></div>

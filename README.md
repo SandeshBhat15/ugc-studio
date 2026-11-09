@@ -116,7 +116,44 @@ missing, and how much VRAM/RAM/disk you have.
 
 ---
 
-## References
+## How the planner writes a script
+
+The planner is not a copywriter. It is told to write the way a person talks,
+and the storyboard is checked against that before you ever see it.
+
+- **The skeleton is fixed and weighted.** Hook in the first 3 seconds, the
+  demonstration in the middle, one-breath CTA at the end. A 15s ad splits
+  roughly 4 / 7 / 4, not three equal 5s boxes. The hook is ~3s whether the ad is
+  15s or 60s.
+- **The brand never appears in the hook.** A brand name in the first line is the
+  fastest way to signal "advertisement" and lose the scroll. The product is named
+  in the demo, where it belongs.
+- **Banned phrases.** "Stop scrolling", "wait for it", "you won't believe",
+  "this changed everything", plus ad-speak like *elevate*, *unleash*,
+  *seamless*, *game-changing*, *the ultimate*. Poster copy like "shop now" is
+  caught too, because a creator does not say that out loud.
+- **One automatic rewrite.** If the first draft trips any rule — a cliché, an
+  over-long line, an image prompt with no named light source, flat "well lit"
+  lighting, no camera motion, two scenes framed identically — the violations are
+  sent straight back and the model writes the whole storyboard again. Anything
+  still wrong after that appears as a warning on the storyboard.
+- **Spoken lines are capped at ~12 words** and written at a fifth-grade level.
+  Fragments are fine. Long clause-heavy lines collapse at low step counts.
+
+### The look is enforced, not hoped for
+
+Every image prompt is topped up with whatever it is missing from a fixed floor:
+shot on a phone, vertical, one dominant light with real falloff, off-centre
+framing, flat colour profile, sensor grain, visible pores, and explicit "no
+beauty filter / no studio lighting / no ring light / no professional
+photography". Only the missing clauses are added, so nothing gets weighted
+twice. Every video prompt gets handheld micro-jitter, exposure breathing and one
+small refocus.
+
+That floor is the difference between footage that reads as a phone video and a
+studio render that reads as an advert.
+
+---
 
 Drop files straight onto the boxes in the Brief tab — no paths to type.
 

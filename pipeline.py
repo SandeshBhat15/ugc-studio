@@ -193,7 +193,9 @@ def run_plan(pid: str) -> dict:
         sb = planner.plan(settings, fields, opts)
         sb = planner.normalize_storyboard(sb, int(project["duration"]),
                                           planner._scene_count(int(project["duration"]),
-                                                               opts["single_take"]))
+                                                               opts["single_take"]),
+                                          single_take=opts["single_take"],
+                                          brief_fields=fields)
         root = PROJECTS_DIR / pid
         (root / "brief").mkdir(parents=True, exist_ok=True)
         write_json(root / "brief" / "brief_fields.json", fields)
@@ -277,6 +279,10 @@ def qc_storyboard(sb: dict, project: dict) -> list[dict]:
             issues.append({"level": "warn", "msg": f"Scene {s['n']} has a very short image prompt."})
         if int(s.get("seconds", 0)) < 1:
             issues.append({"level": "error", "msg": f"Scene {s['n']} has an invalid duration."})
+    # Copy problems the planner already detected, so the user sees them at the
+    # approval gate instead of discovering them after a render.
+    for flag in sb.get("slop_flags") or []:
+        issues.append({"level": "warn", "msg": flag})
     return issues
 
 
