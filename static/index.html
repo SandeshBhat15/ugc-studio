@@ -1020,6 +1020,15 @@ function renderStills(box,p){
         <div style="flex:1;min-width:240px">
           <label>Describe the creator</label>
           <textarea id="ch_desc" rows="3" placeholder="e.g. Indian woman in her mid-20s, lean, long dark hair, natural makeup, cropped racing jacket">${esc(ch.prompt||'')}</textarea>
+          <div class="field-row" style="margin-top:8px;align-items:center;gap:8px">
+            <label style="margin:0">Voice gender</label>
+            <select id="ch_gender" style="max-width:190px">
+              <option value="">Auto from description</option>
+              <option value="female" ${ch.gender==='female'?'selected':''}>Female</option>
+              <option value="male" ${ch.gender==='male'?'selected':''}>Male</option>
+            </select>
+            <span class="mono">decides which voice reads the lines</span>
+          </div>
           <div class="field-row" style="margin-top:10px">
             <button class="btn ${ch.file?'':'primary'}" data-act="gen-character">${ch.file?'Regenerate sheet':'Generate sheet'}</button>
             <span class="mono">${ch.width?`${ch.width}×${ch.height} · seed ${ch.seed}`:''}</span>
@@ -1106,7 +1115,7 @@ function pickSheet(){
     try{
       const [up]=await uploadStaged([f]);
       if(!up) throw new Error('Upload failed.');
-      await jpost(`/api/projects/${S.project.id}/character/sheet`,{path:up.path});
+      await jpost(`/api/projects/${S.project.id}/character/sheet`,{path:up.path,gender:($('#ch_gender')?.value||'')});
       S.files=null;
       await refreshProject(true);
       toast('Character sheet imported — every scene will use this face.');
@@ -1150,8 +1159,9 @@ async function approveStill(n){
 }
 async function genCharacter(){
   const description=($('#ch_desc')?.value||'').trim();
+  const gender=($('#ch_gender')?.value||'').trim();
   try{
-    await jpost(`/api/projects/${S.project.id}/character`,{description});
+    await jpost(`/api/projects/${S.project.id}/character`,{description,gender});
     await refreshProject(true); toast('Character sheet generation started.');
   }catch(e){ fail(e); }
 }

@@ -338,7 +338,8 @@ class Handler(BaseHTTPRequestHandler):
                           "profile", "video_profile", "comfy_url",
                           "overlay_enabled", "overlay_brand", "overlay_cta",
                           "overlay_captions", "gemini_key", "gemini_model",
-                          "tts_enabled", "tts_voice",
+                          "tts_enabled", "tts_voice", "tts_voice_male",
+                          "tts_voice_female",
                           "video_turbo", "video_steps", "audio_mode",
                           "character"):
                     if k in body:
@@ -401,7 +402,7 @@ class Handler(BaseHTTPRequestHandler):
                 body = self._jsonbody()
                 return self._json({"ok": True,
                                    "character": pipeline.set_character_sheet(
-                                       m.group(1), body.get("path"))})
+                                       m.group(1), body.get("path"), body.get("gender"))})
             m = re.match(r"^/api/projects/([^/]+)/(brief|plan|approve-storyboard|stills|videos|export|reorder|generate-campaign|character|stills/approve|stills/regenerate|stills/replace)$", p)
             if m:
                 pid, action = m.group(1), m.group(2)

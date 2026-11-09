@@ -95,7 +95,11 @@ def load_settings() -> dict:
     s.setdefault("gemini_key", "")            # Google Gemini API key
     s.setdefault("gemini_model", "gemini-3.8-flash")  # planning model
     s.setdefault("tts_enabled", True)         # real voiceover via Gemini TTS
-    s.setdefault("tts_voice", "Kore")         # Gemini prebuilt voice name
+    s.setdefault("tts_voice", "Kore")         # fallback when gender is unknown
+    # A voice must match the person on screen, so the pipeline picks by gender
+    # instead of using one global voice for every creator.
+    s.setdefault("tts_voice_female", "Kore")
+    s.setdefault("tts_voice_male", "Puck")
     s.setdefault("last_model_check", 0)
     return s
 

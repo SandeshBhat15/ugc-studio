@@ -1,6 +1,7 @@
 """Production Manager: project state, stage execution, QC, exports."""
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import shutil
@@ -378,8 +379,17 @@ def run_character(pid: str, opts: dict | None = None) -> dict:
         refs.append(entry["comfy_name"])
 
     desc = (opts.get("description") or "").strip()
-    who = desc or ("a friendly, natural-looking person in their late twenties, "
-                   "genuine warm smile, casual everyday clothing")
+    gender = str(opts.get("gender") or "").strip().lower()
+    if gender not in ("female", "male"):
+        gender = infer_gender(desc, str(project.get("brief") or "")[:600])
+    if desc:
+        who = desc
+    else:
+        # The old gender-neutral wording is exactly how a male still appeared
+        # in a brief that asked for a woman, so the default now carries gender.
+        word = {"female": "woman", "male": "man"}.get(gender, "person")
+        who = (f"a friendly, natural-looking {word} in their late twenties, "
+               "genuine warm smile, casual everyday clothing")
     prompt = (f"Create a clean character reference portrait of {who}. "
               "Head and shoulders, looking at the camera, neutral seamless background, "
               "single soft key light from 45 degrees, subtle shadow side, sharp focus "
@@ -412,6 +422,7 @@ def run_character(pid: str, opts: dict | None = None) -> dict:
         "status": "ready",
         "width": wh[0], "height": wh[1],
         "prompt": prompt,
+        "gender": gender,
         "seed": seed,
         "profile": profile,
         "used_references": len(refs),
@@ -658,7 +669,7 @@ def delete_project_file(pid: str, rel: str) -> dict:
     return {"deleted": rel}
 
 
-def set_character_sheet(pid: str, src) -> dict:
+def set_character_sheet(pid: str, src, gender: str | None = None) -> dict:
     """Import a character sheet drawn anywhere instead of generating one.
 
     A supplied sheet is the strongest identity lock the pipeline can get: it
@@ -681,6 +692,9 @@ def set_character_sheet(pid: str, src) -> dict:
         "file": str(dest.relative_to(root)).replace("\\", "/"),
         "status": "ready", "source": "imported", "width": w, "height": h,
         "created": now(), "prompt": previous.get("prompt", ""),
+        "gender": (str(gender or "").strip().lower()
+                   if str(gender or "").strip().lower() in ("female", "male")
+                   else previous.get("gender") or ""),
     }
     save(project)
     log(project, f"Character sheet imported from {src.name}.")
@@ -719,6 +733,69 @@ def duplicate_project(pid: str) -> dict:
     (project.get("character") or {}).pop("comfy_name", None)
     write_json(dest / "project.json", project)
     return project
+
+
+# ---------------------------------------------------------------- speaking
+
+# H3 animates what the prompt describes. A prompt that lists only a silent
+# physical performance gets exactly that: speech in the audio track, a closed
+# mouth in the picture. So the pipeline appends these itself — the planner is
+# not allowed to drop them.
+SPEAKING_STILL = (
+    "The creator is mid-sentence: mouth slightly open, lips parted as if "
+    "speaking the next word, eyes on the lens, eyebrows raised in conversation."
+)
+
+SPEAKING_VIDEO = (
+    "The creator is talking to the camera for the entire shot: mouth open, lips "
+    "and jaw moving continuously with the words, natural blinking, small head "
+    "movement on the stressed syllables. Never silent, never mouth closed, "
+    "never a voiceover laid over a still face."
+)
+
+FEMALE_WORDS = ("woman", "women", "girl", "female", " she ", " her ", "lady",
+                "mother", " mum", " mom", "actress", "wife", "girlfriend")
+MALE_WORDS = (" man", " men", " boy", " male", " he ", " his ", " guy",
+              "father", " dad", "actor", "husband", "boyfriend")
+
+
+def infer_gender(*texts) -> str:
+    """Guess the on-screen creator's gender from whatever text we have."""
+    blob = " " + " ".join(str(t or "").lower() for t in texts) + " "
+    female = sum(blob.count(w) for w in FEMALE_WORDS)
+    male = sum(blob.count(w) for w in MALE_WORDS)
+    if female > male:
+        return "female"
+    if male > female:
+        return "male"
+    return ""
+
+
+def creator_gender(project: dict) -> str:
+    """Gender of the person actually on screen, or '' when nobody knows.
+
+    A character sheet is the authority. Without one we fall back to the text we
+    do have, because a wrong voice is worse than an inferred one.
+    """
+    ch = project.get("character") or {}
+    g = str(ch.get("gender") or "").strip().lower()
+    if g in ("female", "male"):
+        return g
+    fields = (project.get("stage01") or {}).get("fields") or {}
+    audience = fields.get("target_audience") if isinstance(fields, dict) else ""
+    return infer_gender(ch.get("description"), ch.get("prompt"), audience,
+                        str(project.get("brief") or "")[:600])
+
+
+def resolve_voice(project: dict, settings: dict) -> tuple[str, str]:
+    """Pick a TTS voice that matches the creator. Returns (voice, why)."""
+    gender = creator_gender(project)
+    if gender == "male":
+        return (settings.get("tts_voice_male") or "Puck"), "male creator"
+    if gender == "female":
+        return (settings.get("tts_voice_female") or "Kore"), "female creator"
+    return ((settings.get("tts_voice") or "Kore"),
+            "gender unknown - using the default voice")
 
 
 def run_stills(pid: str, scenes: list[int] | None = None) -> dict:
@@ -779,6 +856,10 @@ def run_stills(pid: str, scenes: list[int] | None = None) -> dict:
                       "Never invent, restyle or reletter a label. If no label is "
                       "visible in the reference, leave the product surface blank and "
                       "unprinted.")
+            # A closed-mouth still is what produced a voiceover over a silent
+            # face, so any scene with a spoken line asks for a speaking pose.
+            if str(s.get("script") or "").strip():
+                prompt = (prompt.rstrip(". ") + ". " + SPEAKING_STILL)
             seed = int(entry.get("seed") or 42)
             graph = c.image_graph(
                 prompt=prompt, width=width, height=height, ref_images=refs,
@@ -974,7 +1055,10 @@ def run_videos(pid: str, scenes: list[int] | None = None,
     turbo = bool(settings.get("video_turbo", False))
     steps = int(settings.get("video_steps", 0) or
                 {"draft": 20, "standard": 25, "high": 30}.get(profile, 20))
-    voice = settings.get("tts_voice") or "Kore"
+    voice, voice_reason = resolve_voice(project, settings)
+    if voice_reason.startswith("gender unknown"):
+        log(project, f"Voice: {voice_reason} ({voice}). Set the creator's gender "
+                     "in the Characters tab to match it to the person on screen.", "warn")
     want_tts = bool(settings.get("tts_enabled", True)) and bool(settings.get("gemini_key"))
     audio_dir = root / "audio"
     audio_dir.mkdir(parents=True, exist_ok=True)
@@ -1009,7 +1093,12 @@ def run_videos(pid: str, scenes: list[int] | None = None,
             line = str(s.get("script") or "").strip()
             ref_wav = None
             if want_tts and line:
-                candidate = audio_dir / f"scene_{n:02d}.wav"
+                # Key the file by voice + text. Reusing a plain scene_01.wav
+                # meant an old female take survived a voice fix and got played
+                # over a male creator.
+                digest = hashlib.sha1(
+                    f"{voice}\n{line}".encode("utf-8")).hexdigest()[:8]
+                candidate = audio_dir / f"scene_{n:02d}_{digest}.wav"
                 try:
                     if not candidate.exists() or candidate.stat().st_size < 2000:
                         candidate.write_bytes(llm.gemini_tts(
@@ -1030,9 +1119,13 @@ def run_videos(pid: str, scenes: list[int] | None = None,
                     "A continuous take is capped at about 15 seconds by H3. "
                     "Shorten the project, or turn off single take and cut it into scenes.")
             seed = int(entry.get("seed") or 42)
+            video_prompt = str(s.get("video_prompt") or s.get("visual") or "subtle motion")
+            if line:
+                # The prompt is the only thing telling H3 to move the mouth.
+                video_prompt = (video_prompt.rstrip(". ") + ". " + SPEAKING_VIDEO)
             graph = c.video_graph(
                 image_name=str(still_path).replace("\\", "/"),
-                prompt=s.get("video_prompt") or s.get("visual") or "subtle motion",
+                prompt=video_prompt,
                 width=width, height=height, length=length,
                 prefix=f"{COMFY_PREFIX}/{pid}/scene_{n}_video",
                 seed=seed, turbo=turbo, audio=True, steps=steps,
@@ -1058,6 +1151,11 @@ def run_videos(pid: str, scenes: list[int] | None = None,
                 qc.append({"level": "error", "msg": f"Cannot read the video: {info['error']}"})
             if not info.get("duration"):
                 qc.append({"level": "error", "msg": "Video has zero duration."})
+            if want_tts and not creator_gender(project):
+                qc.append({"level": "warn",
+                           "msg": "Voice may not match the creator: no gender is "
+                                  "recorded for this character. Set it in the "
+                                  "Characters tab."})
             entry.update({
                 "status": "completed", "file": str(dest.relative_to(root)).replace("\\", "/"),
                 "width": info.get("width"), "height": info.get("height"),
@@ -1066,12 +1164,13 @@ def run_videos(pid: str, scenes: list[int] | None = None,
                 "voiceover": (str(ref_wav.relative_to(root)).replace("\\", "/")
                               if ref_wav is not None else None),
                 "turbo": turbo, "steps": steps,
-                "prompt": s.get("video_prompt"), "seed": seed,
+                "voice": voice, "voice_reason": voice_reason,
+                "prompt": video_prompt, "seed": seed,
                 "source_image": approved, "finished": now(), "qc": qc, "error": None,
             })
             write_json(root / "prompts" / f"scene_{n:02d}_video.json",
-                       {"prompt": s.get("video_prompt"), "seed": seed, "frames": length,
-                        "width": width, "height": height,
+                       {"prompt": video_prompt, "seed": seed, "frames": length,
+                        "width": width, "height": height, "voice": voice,
                         "source_image": approved, "model": comfy_mod.REF2VA})
             save(project)
             log(project, f"Scene {n} video generated.")
@@ -1150,7 +1249,7 @@ def build_export(pid: str, opts: dict | None = None) -> dict:
     # as the frames, so words and mouth are frame-accurate by construction.
     # "tts" overwrites it with Gemini speech (legacy behaviour).
     audio_mode = str(opts.get("audio_mode") or settings.get("audio_mode") or "native").lower()
-    voice = settings.get("tts_voice") or "Kore"
+    voice, _voice_reason = resolve_voice(project, settings)
     script_of = {}
     for s in project["stage01"]["storyboard"]["scenes"]:
         line = str(s.get("script") or "").strip()
