@@ -1243,6 +1243,11 @@ function renderVideos(box,p){
           <option value="1" ${S.settings?.video_turbo?'selected':''}>On — fast, plastic</option>
         </select></div>
         <div><label>Steps</label><input id="v_steps" type="number" min="4" max="50" value="${esc(S.settings?.video_steps||20)}"/></div>
+        <div><label>Upscale draft</label><select id="v_upscale">
+          <option value="0" ${S.settings?.video_upscale===false?'selected':''}>Off - draft pixels only</option>
+          <option value="2" ${Number(S.settings?.video_upscale_factor??2.5)===2?'selected':''}>2x - 768x1344</option>
+          <option value="2.5" ${Number(S.settings?.video_upscale_factor??2.5)===2.5?'selected':''}>2.5x - 960x1696</option>
+        </select></div>
         <div><label>Speech</label><select id="v_audio">
           <option value="native" ${S.settings?.audio_mode==='native'?'selected':''}>Native H3 audio</option>
           <option value="tts" ${S.settings?.audio_mode==='tts'?'selected':''}>Replace with Gemini TTS</option>
@@ -1304,6 +1309,8 @@ async function saveRenderSettings(){
       video_profile:$('#v_profile').value,
       video_turbo:$('#v_turbo').value==='1',
       video_steps:+$('#v_steps').value||0,
+        video_upscale:$('#v_upscale').value!=='0',
+        video_upscale_factor:+$('#v_upscale').value||2.5,
       audio_mode:$('#v_audio').value
     });
     S.settings=await api('/api/settings');
@@ -1552,6 +1559,10 @@ async function showSettings(){
             <option value="0" ${!s.video_turbo?'selected':''}>Quality — turbo off, ~20 steps</option>
             <option value="1" ${s.video_turbo?'selected':''}>Fast — turbo on, 8–12 steps</option></select></div>
           <div><label>Steps (0 = auto)</label><input id="s_steps" type="number" min="0" max="50" value="${esc(s.video_steps||0)}"/></div>
+          <div><label>Upscale draft</label><select id="s_upscale">
+            <option value="0" ${s.video_upscale===false?'selected':''}>Off - draft pixels only</option>
+            <option value="2" ${Number(s.video_upscale_factor??2.5)===2?'selected':''}>2x - 768x1344</option>
+            <option value="2.5" ${Number(s.video_upscale_factor??2.5)===2.5?'selected':''}>2.5x - 960x1696</option></select></div>
         </div>
         <div class="grid c4" style="margin-top:14px">
           <div><label>Audio</label><select id="s_audio">
@@ -1810,6 +1821,8 @@ async function saveSettings(){
     video_profile:$('#s_vprofile').value,
     video_turbo:$('#s_turbo').value==='1',
     video_steps:+$('#s_steps').value||0,
+          video_upscale:$('#s_upscale').value!=='0',
+          video_upscale_factor:+$('#s_upscale').value||2.5,
     audio_mode:$('#s_audio').value,
     tts_enabled:$('#s_tts').value==='1',
     tts_voice:$('#s_voice').value.trim()||'Kore',

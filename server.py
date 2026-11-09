@@ -341,6 +341,7 @@ class Handler(BaseHTTPRequestHandler):
                           "tts_enabled", "tts_voice", "tts_voice_male",
                           "tts_voice_female",
                           "video_turbo", "video_steps", "audio_mode",
+                          "video_upscale", "video_upscale_factor",
                           "character"):
                     if k in body:
                         s[k] = body[k]

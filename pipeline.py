@@ -1100,6 +1100,11 @@ def replace_still(pid: str, n: int, src: str) -> dict:
 
 # ---------------------------------------------------------------- stage 03
 
+def align32(value: float) -> int:
+    """Round a dimension to the multiple of 32 the H3 latent upscaler requires."""
+    return max(32, int(round(float(value) / 32.0)) * 32)
+
+
 def run_videos(pid: str, scenes: list[int] | None = None,
                seeds: dict | None = None) -> dict:
     project = get(pid)
@@ -1111,6 +1116,14 @@ def run_videos(pid: str, scenes: list[int] | None = None,
 
     profile = settings.get("video_profile", "draft")
     width, height = resolve_size(project["aspect"], profile)
+    # Render the draft small, then resize the *latent* before decoding. The
+    # sampler never sees the larger size, so time and VRAM stay at draft level
+    # and the face cannot drift on the way up - it is the same latent.
+    upscale = None
+    if settings.get("video_upscale", True):
+        factor = float(settings.get("video_upscale_factor", 2.5) or 2.5)
+        if factor > 1.0:
+            upscale = (align32(width * factor), align32(height * factor))
     root = PROJECTS_DIR / pid
     # Resolution and sampler quality are independent knobs. What made the
     # video look plastic was the turbo LoRA + euler + 8 steps, NOT the small
@@ -1212,18 +1225,37 @@ def run_videos(pid: str, scenes: list[int] | None = None,
             if line:
                 # The prompt is the only thing telling H3 to move the mouth.
                 video_prompt = (video_prompt.rstrip(". ") + ". " + SPEAKING_VIDEO)
-            graph = c.video_graph(
-                image_name=str(still_path).replace("\\", "/"),
-                prompt=video_prompt,
-                width=width, height=height, length=length,
-                prefix=f"{COMFY_PREFIX}/{pid}/scene_{n}_video",
-                seed=seed, turbo=turbo, audio=True, steps=steps,
-                character=video_character,
-                ref_audio=str(ref_wav).replace("\\", "/") if ref_wav else None)
-            qid = c.queue(graph)
+            def _graph(up):
+                return c.video_graph(
+                    image_name=str(still_path).replace("\\", "/"),
+                    prompt=video_prompt,
+                    width=width, height=height, length=length,
+                    prefix=f"{COMFY_PREFIX}/{pid}/scene_{n}_video",
+                    seed=seed, turbo=turbo, audio=True, steps=steps,
+                    character=video_character,
+                    upscale=up,
+                    ref_audio=str(ref_wav).replace("\\", "/") if ref_wav else None)
+
+            upscale_note = None
+            qid = c.queue(_graph(upscale))
             entry["prompt_id"] = qid
             save(project)
-            result = c.wait(qid, timeout=5400)
+            try:
+                result = c.wait(qid, timeout=5400)
+            except Exception as e:
+                if not upscale:
+                    raise
+                # The upscale is an upgrade, not a requirement. If this card
+                # cannot decode the larger frame, ship the draft and say so
+                # instead of losing the whole scene.
+                upscale_note = (f"The {upscale[0]}x{upscale[1]} upscale pass failed "
+                                f"({str(e)[:120]}); this scene is at draft size.")
+                log(project, f"Scene {n}: {upscale_note}", "warn")
+                upscale = None
+                qid = c.queue(_graph(None))
+                entry["prompt_id"] = qid
+                save(project)
+                result = c.wait(qid, timeout=5400)
             produced = _collect_videos(result)
             if not produced:
                 raise ComfyError("Generation finished but produced no video.")
@@ -1236,6 +1268,8 @@ def run_videos(pid: str, scenes: list[int] | None = None,
             shutil.copy2(src, dest)
             info = media.probe(dest)
             qc = []
+            if upscale_note:
+                qc.append({"level": "warn", "msg": upscale_note})
             if info.get("error"):
                 qc.append({"level": "error", "msg": f"Cannot read the video: {info['error']}"})
             if not info.get("duration"):
@@ -1330,6 +1364,17 @@ def build_export(pid: str, opts: dict | None = None) -> dict:
             clips.append((n, root / v["file"]))
     if not clips:
         raise RuntimeError("No completed scene videos to export.")
+
+    # Never shrink a clip that was already rendered bigger. The latent-upscale
+    # stage produces a larger frame than the still profile asks for, and
+    # exporting at the profile size would throw that resolution away.
+    if not opts.get("profile"):
+        for _n, clip in clips:
+            info = media.probe(clip)
+            if info.get("width") and info.get("height"):
+                if info["width"] * info["height"] > width * height:
+                    width, height = int(info["width"]), int(info["height"])
+                break
 
     work = root / "exports" / "_work"
     work.mkdir(parents=True, exist_ok=True)

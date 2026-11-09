@@ -12,6 +12,10 @@ QWEN = "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors"
 VAE_VIDEO = "minimax_h3_video_vae_fp16.safetensors"
 VAE_AUDIO = "minimax_h3_audio_vae_fp32.safetensors"
 TURBO_LORA = "minimax_h3_turbo_v4_step600_ema_pruned_comfyui.safetensors"
+# MiniMax H3 3D latent upscaler (658 MB, Efficient-Large-Model/Open-H3-Regenerate-2K-IC).
+# Resizes an already-denoised H3 latent instead of re-rendering at the larger
+# size, so the face and the lip timing cannot drift on the way up.
+LATENT_UPSCALER = "minimax_h3_latent_upscaler_3d_conv_v1_bf16.safetensors"
 UPSCALE = "RealESRGAN_x2.pth"
 
 # Resolution profiles. Mimics Mickmumpitz MinimaxH3Resolution:
@@ -177,7 +181,8 @@ class Comfy:
                     turbo: bool = True, audio: bool = True,
                     ref_audio: str | None = None,
                     steps: int | None = None,
-                    character: str | None = None) -> dict:
+                    character: str | None = None,
+                    upscale: tuple[int, int] | None = None) -> dict:
         """Native H3 video from an approved still, official pack defaults.
 
         Passing `ref_audio` (an absolute WAV path) conditions the model on the
@@ -271,6 +276,19 @@ class Comfy:
             g["17"] = {"class_type": "VHS_LoadAudio",
                        "inputs": {"audio_file": str(ref_audio)}}
             g["8"]["inputs"]["ref_audios.ref_audio_0"] = ["17", 0]
+
+        if upscale:
+            # Resize the finished latent, then decode at the bigger size. The
+            # audio branch reads the same latent, so the voiceover and its lip
+            # sync pass through the upscale untouched.
+            up_w, up_h = int(upscale[0]), int(upscale[1])
+            g["30"] = {"class_type": "LatentUpscaleModelLoader",
+                       "inputs": {"model_name": LATENT_UPSCALER}}
+            g["31"] = {"class_type": "MiniMaxH3LatentUpscaleWithModel",
+                       "inputs": {"model": ["30", 0], "samples": ["13", 0],
+                                  "width": up_w, "height": up_h}}
+            g["14"]["inputs"]["samples"] = ["31", 0]
+            g["15"]["inputs"]["samples"] = ["31", 0]
 
         g["99"] = {"class_type": "SaveVideo",
                    "inputs": {"video": ["16", 0], "filename_prefix": prefix,
