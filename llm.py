@@ -19,7 +19,8 @@ GEMINI = "https://generativelanguage.googleapis.com/v1beta"
 
 # Tried in order when the primary model's free-tier quota is spent (HTTP 429).
 CHAT_FALLBACKS = ["gemini-3.5-flash", "gemini-2.5-flash"]
-TTS_FALLBACKS = ["gemini-3.8-flash-lite-tts", "gemini-3.1-flash-tts-preview"]
+TTS_FALLBACKS = ["gemini-3.8-flash-lite-tts", "gemini-3.1-flash-tts-preview",
+                 "gemini-2.5-flash-preview-tts"]
 
 # Filled in by gemini_tts so callers can record which model actually spoke and
 # whether the delivery style survived.

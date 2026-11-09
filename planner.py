@@ -405,15 +405,16 @@ def plan_offline(brief_fields: dict, opts: dict) -> dict:
             "script": _trim_words(script),
             "visual": f"{shot}, creator {action}. {env}. {light}.",
             "creator_action": action,
-            "product_action": (f"{product} in frame, label readable." if product
-                               else "product in frame, label readable."),
+            "product_action": (f"{product} in frame, unlabelled." if product
+                               else "product in frame, unlabelled."),
             "camera_framing": shot,
             "camera_movement": move,
             "lighting": light,
             "image_prompt": (
                 f"{shot} of the creator {action}, {env}. {light}. "
-                f"Product: {product or 'the product'} clearly in frame, label "
-                f"readable, held naturally. {style_hint}. {plat_hint} {PHONE_LOOK}"
+                f"Product: {product or 'the product'} clearly in frame, plain "
+                f"unlabelled bottle with no lettering, held naturally. {style_hint}. "
+                f"{plat_hint} {PHONE_LOOK}"
             ).strip(),
             "video_prompt": (
                 f"Creator {action} and keeps talking to camera. {move}. "
@@ -422,7 +423,7 @@ def plan_offline(brief_fields: dict, opts: dict) -> dict:
             "audio": "creator voiceover" if style != "product-focused commercial" else "music only",
             "refs": {"products": [1] if brief_fields.get("product_name") or brief_fields.get("brand") else [],
                      "creators": [1] if style != "product-focused commercial" else []},
-            "continuity": "same creator, same wardrobe, same room, consistent product label",
+            "continuity": "same creator, same wardrobe, same room, same plain unlabelled bottle",
         })
 
     return {
@@ -495,6 +496,10 @@ close-up, wide room shot, over-shoulder. Two identical framings in a row reads a
 slideshow.
 - Keep one creator, one wardrobe, one location across scenes unless the brief says \
 otherwise. continuity states exactly what must not change.
+- Never ask for a label, logo, brand name, price or any lettering on the product or \
+anywhere in the scene. The image model renders lettering as gibberish, and garbled \
+brand text is worse than no text. Describe a plain unlabelled container; the brand \
+lives in the spoken line and the burned-in caption.
 
 Output minified JSON only, matching the schema exactly. Scene durations must sum exactly \
 to the requested total."""
