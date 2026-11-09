@@ -1020,15 +1020,23 @@ function renderStills(box,p){
         <div style="flex:1;min-width:240px">
           <label>Describe the creator</label>
           <textarea id="ch_desc" rows="3" placeholder="e.g. Indian woman in her mid-20s, lean, long dark hair, natural makeup, cropped racing jacket">${esc(ch.prompt||'')}</textarea>
-          <div class="field-row" style="margin-top:8px;align-items:center;gap:8px">
-            <label style="margin:0">Voice gender</label>
-            <select id="ch_gender" style="max-width:190px">
-              <option value="">Auto from description</option>
-              <option value="female" ${ch.gender==='female'?'selected':''}>Female</option>
-              <option value="male" ${ch.gender==='male'?'selected':''}>Male</option>
-            </select>
-            <span class="mono">decides which voice reads the lines</span>
+          <div class="grid c3" style="margin-top:10px">
+            <div><label>Gender</label>
+              <select id="ch_gender">
+                <option value="">Auto from description</option>
+                <option value="female" ${ch.gender==='female'?'selected':''}>Female</option>
+                <option value="male" ${ch.gender==='male'?'selected':''}>Male</option>
+              </select></div>
+            <div><label>Voice</label>
+              <select id="ch_voice">
+                <option value="">Auto by gender</option>
+                ${['Kore','Aoede','Leda','Zephyr','Puck','Charon','Fenrir','Orus'].map(v=>`<option value="${v}" ${(ch.voice||{}).name===v?'selected':''}>${v}</option>`).join('')}
+              </select></div>
+            <div><label>Tone (how they talk)</label>
+              <input id="ch_tone" value="${esc(ch.tone||'')}" placeholder="deadpan, fast, self-deprecating"/></div>
           </div>
+          <div style="margin-top:10px"><label>Voice style (accent, pace, warmth)</label>
+            <input id="ch_voice_style" value="${esc((ch.voice||{}).style||'')}" placeholder="mid-20s Indian English, warm, quick, casual, slight smile"/></div>
           <div class="field-row" style="margin-top:10px">
             <button class="btn ${ch.file?'':'primary'}" data-act="gen-character">${ch.file?'Regenerate sheet':'Generate sheet'}</button>
             <span class="mono">${ch.width?`${ch.width}×${ch.height} · seed ${ch.seed}`:''}</span>
@@ -1115,7 +1123,12 @@ function pickSheet(){
     try{
       const [up]=await uploadStaged([f]);
       if(!up) throw new Error('Upload failed.');
-      await jpost(`/api/projects/${S.project.id}/character/sheet`,{path:up.path,gender:($('#ch_gender')?.value||'')});
+      await jpost(`/api/projects/${S.project.id}/character/sheet`,{
+        path:up.path, gender:($('#ch_gender')?.value||''),
+        voice:($('#ch_voice')?.value||''),
+        voice_style:($('#ch_voice_style')?.value||''),
+        tone:($('#ch_tone')?.value||''),
+        description:($('#ch_desc')?.value||'')});
       S.files=null;
       await refreshProject(true);
       toast('Character sheet imported — every scene will use this face.');
@@ -1160,8 +1173,12 @@ async function approveStill(n){
 async function genCharacter(){
   const description=($('#ch_desc')?.value||'').trim();
   const gender=($('#ch_gender')?.value||'').trim();
+  const voice=($('#ch_voice')?.value||'').trim();
+  const voice_style=($('#ch_voice_style')?.value||'').trim();
+  const tone=($('#ch_tone')?.value||'').trim();
   try{
-    await jpost(`/api/projects/${S.project.id}/character`,{description,gender});
+    await jpost(`/api/projects/${S.project.id}/character`,
+      {description,gender,voice,voice_style,tone});
     await refreshProject(true); toast('Character sheet generation started.');
   }catch(e){ fail(e); }
 }
@@ -1198,6 +1215,7 @@ function renderVideos(box,p){
         <div class="meta">
           ${e.duration?`<span>${e.duration}s</span><span>${e.width}×${e.height}</span><span>${e.fps}fps</span>`:''}
           ${e.steps?`<span>${e.steps} steps${e.turbo?' · turbo':''}</span>`:''}
+          ${e.voice?`<span>voice ${esc(e.voice)}${e.voice_styled?' \u00b7 styled':''}</span>`:''}
           ${e.seed!=null?`<span>seed ${e.seed}</span>`:''}
         </div>
         ${(e.qc||[]).map(q=>`<div class="qcline ${q.level==='error'?'err':''}">${esc(q.msg)}</div>`).join('')}

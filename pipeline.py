@@ -191,6 +191,11 @@ def run_plan(pid: str) -> dict:
         opts = {"duration": project["duration"], "style": project["style"],
                 "platform": project["platform"], "aspect": project["aspect"],
                 "single_take": bool(project.get("single_take"))}
+        # The script has to sound like this specific creator, not like a
+        # generic ad reader, so the character's own tone goes into the brief.
+        ch = project.get("character") or {}
+        opts["tone"] = str(ch.get("tone") or "").strip()
+        opts["creator"] = str(ch.get("description") or "").strip()
         sb = planner.plan(settings, fields, opts)
         sb = planner.normalize_storyboard(sb, int(project["duration"]),
                                           planner._scene_count(int(project["duration"]),
@@ -417,12 +422,20 @@ def run_character(pid: str, opts: dict | None = None) -> dict:
     shutil.copy2(src, dest)
     wh = _png_size(dest)
 
+    previous = project.get("character") or {}
+    prev_voice = previous.get("voice") if isinstance(previous.get("voice"), dict) else {}
     project["character"] = {
         "file": str(dest.relative_to(root)).replace("\\", "/"),
         "status": "ready",
         "width": wh[0], "height": wh[1],
         "prompt": prompt,
+        "description": who,
         "gender": gender,
+        "voice": {"name": (str(opts.get("voice") or "").strip()
+                           or str(prev_voice.get("name") or "")),
+                  "style": (str(opts.get("voice_style") or "").strip()
+                            or str(prev_voice.get("style") or ""))},
+        "tone": str(opts.get("tone") or "").strip() or str(previous.get("tone") or ""),
         "seed": seed,
         "profile": profile,
         "used_references": len(refs),
@@ -669,7 +682,9 @@ def delete_project_file(pid: str, rel: str) -> dict:
     return {"deleted": rel}
 
 
-def set_character_sheet(pid: str, src, gender: str | None = None) -> dict:
+def set_character_sheet(pid: str, src, gender: str | None = None,
+                        voice: str | None = None, voice_style: str | None = None,
+                        tone: str | None = None, description: str | None = None) -> dict:
     """Import a character sheet drawn anywhere instead of generating one.
 
     A supplied sheet is the strongest identity lock the pipeline can get: it
@@ -692,9 +707,16 @@ def set_character_sheet(pid: str, src, gender: str | None = None) -> dict:
         "file": str(dest.relative_to(root)).replace("\\", "/"),
         "status": "ready", "source": "imported", "width": w, "height": h,
         "created": now(), "prompt": previous.get("prompt", ""),
+        "description": (str(description or "").strip()
+                        or previous.get("description") or ""),
         "gender": (str(gender or "").strip().lower()
                    if str(gender or "").strip().lower() in ("female", "male")
                    else previous.get("gender") or ""),
+        "voice": {"name": (str(voice or "").strip()
+                           or (previous.get("voice") or {}).get("name") or ""),
+                  "style": (str(voice_style or "").strip()
+                            or (previous.get("voice") or {}).get("style") or "")},
+        "tone": str(tone or "").strip() or previous.get("tone") or "",
     }
     save(project)
     log(project, f"Character sheet imported from {src.name}.")
@@ -787,14 +809,57 @@ def creator_gender(project: dict) -> str:
                         str(project.get("brief") or "")[:600])
 
 
-def resolve_voice(project: dict, settings: dict) -> tuple[str, str]:
-    """Pick a TTS voice that matches the creator. Returns (voice, why)."""
+ACCENTS = {"indian": "Indian English accent", "british": "British accent",
+           "american": "American accent", "australian": "Australian accent",
+           "nigerian": "Nigerian accent", "irish": "Irish accent",
+           "scottish": "Scottish accent", "south african": "South African accent"}
+
+
+def creator_voice(project: dict) -> dict:
+    """The creator's own voice: the prebuilt voice, its delivery, and the tone."""
+    ch = project.get("character") or {}
+    voice = ch.get("voice") if isinstance(ch.get("voice"), dict) else {}
+    return {
+        "name": str(voice.get("name") or ch.get("voice_name") or "").strip(),
+        "style": str(voice.get("style") or ch.get("voice_style") or "").strip(),
+        "tone": str(ch.get("tone") or "").strip(),
+    }
+
+
+def _default_style(project: dict) -> str:
+    """Build a delivery note from the character so the voice is never generic."""
+    ch = project.get("character") or {}
+    blob = " ".join(str(ch.get(k) or "") for k in
+                    ("description", "prompt", "tone")).lower()
+    parts = []
+    for key, label in ACCENTS.items():
+        if key in blob:
+            parts.append(label)
+            break
+    if re.search(r"mid-?20s|2[0-9] years|2[0-9]-year", blob):
+        parts.append("in their twenties")
+    parts.append("warm, natural conversational delivery")
+    parts.append("not a presenter, not an announcer")
+    return ", ".join(parts)
+
+
+def resolve_voice(project: dict, settings: dict) -> tuple[str, str, str]:
+    """Pick the voice that belongs to this creator. Returns (name, style, why).
+
+    A voice is part of a character, not a global preference: the character
+    stores its own prebuilt voice and its own delivery note, and the gender is
+    only a fallback for characters created before that existed.
+    """
+    cv = creator_voice(project)
+    style = cv["style"] or _default_style(project)
+    if cv["name"]:
+        return cv["name"], style, "set on the character"
     gender = creator_gender(project)
     if gender == "male":
-        return (settings.get("tts_voice_male") or "Puck"), "male creator"
+        return (settings.get("tts_voice_male") or "Puck"), style, "male creator default"
     if gender == "female":
-        return (settings.get("tts_voice_female") or "Kore"), "female creator"
-    return ((settings.get("tts_voice") or "Kore"),
+        return (settings.get("tts_voice_female") or "Kore"), style, "female creator default"
+    return ((settings.get("tts_voice") or "Kore"), style,
             "gender unknown - using the default voice")
 
 
@@ -1055,10 +1120,19 @@ def run_videos(pid: str, scenes: list[int] | None = None,
     turbo = bool(settings.get("video_turbo", False))
     steps = int(settings.get("video_steps", 0) or
                 {"draft": 20, "standard": 25, "high": 30}.get(profile, 20))
-    voice, voice_reason = resolve_voice(project, settings)
+    voice, voice_style, voice_reason = resolve_voice(project, settings)
     if voice_reason.startswith("gender unknown"):
         log(project, f"Voice: {voice_reason} ({voice}). Set the creator's gender "
                      "in the Characters tab to match it to the person on screen.", "warn")
+    # Identity for the video pass. The approved still already carries the face
+    # the user approved, so a second identity from a *different* person is
+    # strictly harmful - that is how a male still became a drifting video.
+    proj_char = (project.get("character") or {})
+    video_character = proj_char.get("char") or None
+    if not video_character and proj_char.get("file") and settings.get("character"):
+        log(project, f"Ignoring the global character '{settings['character']}': "
+                     "this project has its own creator sheet and mixing two "
+                     "identities makes the face drift.", "warn")
     want_tts = bool(settings.get("tts_enabled", True)) and bool(settings.get("gemini_key"))
     audio_dir = root / "audio"
     audio_dir.mkdir(parents=True, exist_ok=True)
@@ -1097,16 +1171,31 @@ def run_videos(pid: str, scenes: list[int] | None = None,
                 # meant an old female take survived a voice fix and got played
                 # over a male creator.
                 digest = hashlib.sha1(
-                    f"{voice}\n{line}".encode("utf-8")).hexdigest()[:8]
+                    f"{voice}\n{voice_style}\n{line}".encode("utf-8")).hexdigest()[:8]
                 candidate = audio_dir / f"scene_{n:02d}_{digest}.wav"
                 try:
-                    if not candidate.exists() or candidate.stat().st_size < 2000:
+                    if candidate.exists() and not llm.audio_ok(candidate.read_bytes()):
+                        log(project, f"Scene {n}: cached voiceover was silent, "
+                                     "regenerating it.", "warn")
+                        candidate.unlink(missing_ok=True)
+                    if not candidate.exists():
                         candidate.write_bytes(llm.gemini_tts(
-                            settings["gemini_key"], line, voice=voice))
+                            settings["gemini_key"], line, voice=voice,
+                            style=voice_style))
+                        if not llm.audio_ok(candidate.read_bytes()):
+                            candidate.unlink(missing_ok=True)
+                            raise RuntimeError("the voice model returned silence")
                     ref_wav = candidate
                 except Exception as e:
+                    # Rendering without a reference track means H3 invents its
+                    # own speech and the mouth no longer matches the script -
+                    # the exact bug this stage exists to prevent. Fail the
+                    # scene instead of shipping it.
                     log(project, f"Scene {n} voiceover failed: {e}", "error")
-                    ref_wav = None
+                    entry.update({"status": "needs_attention",
+                                  "error": f"Voiceover failed: {e}"})
+                    save(project)
+                    continue
 
             seconds = float(s.get("seconds", 5))
             if ref_wav is not None:
@@ -1129,7 +1218,7 @@ def run_videos(pid: str, scenes: list[int] | None = None,
                 width=width, height=height, length=length,
                 prefix=f"{COMFY_PREFIX}/{pid}/scene_{n}_video",
                 seed=seed, turbo=turbo, audio=True, steps=steps,
-                character=settings.get("character") or None,
+                character=video_character,
                 ref_audio=str(ref_wav).replace("\\", "/") if ref_wav else None)
             qid = c.queue(graph)
             entry["prompt_id"] = qid
@@ -1156,6 +1245,11 @@ def run_videos(pid: str, scenes: list[int] | None = None,
                            "msg": "Voice may not match the creator: no gender is "
                                   "recorded for this character. Set it in the "
                                   "Characters tab."})
+            if want_tts and voice_style and not llm.LAST_TTS.get("styled"):
+                qc.append({"level": "warn",
+                           "msg": "The delivery style was not applied: the voice "
+                                  "model that answered does not accept a style. "
+                                  "The words still follow the character's tone."})
             entry.update({
                 "status": "completed", "file": str(dest.relative_to(root)).replace("\\", "/"),
                 "width": info.get("width"), "height": info.get("height"),
@@ -1164,7 +1258,10 @@ def run_videos(pid: str, scenes: list[int] | None = None,
                 "voiceover": (str(ref_wav.relative_to(root)).replace("\\", "/")
                               if ref_wav is not None else None),
                 "turbo": turbo, "steps": steps,
-                "voice": voice, "voice_reason": voice_reason,
+                "voice": voice, "voice_style": voice_style,
+                "voice_reason": voice_reason,
+                "tts_model": llm.LAST_TTS.get("model") or None,
+                "voice_styled": bool(llm.LAST_TTS.get("styled")),
                 "prompt": video_prompt, "seed": seed,
                 "source_image": approved, "finished": now(), "qc": qc, "error": None,
             })
@@ -1249,7 +1346,7 @@ def build_export(pid: str, opts: dict | None = None) -> dict:
     # as the frames, so words and mouth are frame-accurate by construction.
     # "tts" overwrites it with Gemini speech (legacy behaviour).
     audio_mode = str(opts.get("audio_mode") or settings.get("audio_mode") or "native").lower()
-    voice, _voice_reason = resolve_voice(project, settings)
+    voice, voice_style, _voice_reason = resolve_voice(project, settings)
     script_of = {}
     for s in project["stage01"]["storyboard"]["scenes"]:
         line = str(s.get("script") or "").strip()
@@ -1280,13 +1377,27 @@ def build_export(pid: str, opts: dict | None = None) -> dict:
             try:
                 # Reuse the exact take the video was lip-synced against. A new
                 # TTS render would be a different performance and would drift.
-                cached = root / "audio" / f"scene_{n:02d}.wav"
+                cached = None
+                recorded = (project["stage03"]["scenes"].get(str(n)) or {}).get("voiceover")
+                if recorded:
+                    p = root / recorded
+                    if p.is_file():
+                        cached = p
+                if cached is None:
+                    # Older projects stored an unhashed take; the hashed name
+                    # is what the render actually used.
+                    for p in sorted((root / "audio").glob(f"scene_{n:02d}_*.wav")):
+                        if llm.audio_ok(p.read_bytes()):
+                            cached = p
+                            break
                 wav = work / f"tts_{n:02d}.wav"
-                if cached.exists() and cached.stat().st_size > 2000:
+                if cached is not None and llm.audio_ok(cached.read_bytes()):
                     shutil.copy2(cached, wav)
                 else:
                     wav.write_bytes(llm.gemini_tts(settings["gemini_key"], line,
-                                                   voice=voice))
+                                                   voice=voice, style=voice_style))
+                    if not llm.audio_ok(wav.read_bytes()):
+                        raise RuntimeError("the voice model returned silence")
                 muxed = work / f"voice_{n:02d}.mp4"
                 media.replace_audio(dst, wav, muxed, work)
                 dst = muxed

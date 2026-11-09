@@ -402,7 +402,9 @@ class Handler(BaseHTTPRequestHandler):
                 body = self._jsonbody()
                 return self._json({"ok": True,
                                    "character": pipeline.set_character_sheet(
-                                       m.group(1), body.get("path"), body.get("gender"))})
+                                       m.group(1), body.get("path"), body.get("gender"),
+                                       body.get("voice"), body.get("voice_style"),
+                                       body.get("tone"), body.get("description"))})
             m = re.match(r"^/api/projects/([^/]+)/(brief|plan|approve-storyboard|stills|videos|export|reorder|generate-campaign|character|stills/approve|stills/regenerate|stills/replace)$", p)
             if m:
                 pid, action = m.group(1), m.group(2)

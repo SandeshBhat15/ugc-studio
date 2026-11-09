@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import base64
 import json
+import struct
 import time
 from dataclasses import dataclass
 
@@ -19,6 +20,10 @@ GEMINI = "https://generativelanguage.googleapis.com/v1beta"
 # Tried in order when the primary model's free-tier quota is spent (HTTP 429).
 CHAT_FALLBACKS = ["gemini-3.5-flash", "gemini-2.5-flash"]
 TTS_FALLBACKS = ["gemini-3.8-flash-lite-tts", "gemini-3.1-flash-tts-preview"]
+
+# Filled in by gemini_tts so callers can record which model actually spoke and
+# whether the delivery style survived.
+LAST_TTS: dict = {"model": "", "styled": False}
 
 
 @dataclass
@@ -336,16 +341,57 @@ def gemini_chat(key: str, model: str, messages: list[dict],
     return "".join(str(p.get("text") or "") for p in parts)
 
 
-def gemini_tts(key: str, text: str, model: str = "gemini-3.8-flash-tts",
-               voice: str = "Kore", timeout: float = 180.0) -> bytes:
-    """Generate speech for `text` and return WAV bytes.
+def _ensure_wav(data: bytes, rate: int = 24000) -> bytes:
+    """Wrap headerless PCM in a RIFF header.
 
-    This is only the *reference* voice. MiniMax H3 renders picture and speech
-    in a single pass, so its own track is the one that actually matches the
-    mouth. We feed this WAV in as `ref_audios` to steer the performance, then
-    keep H3's native audio at export (`audio_mode="native"`). Use
-    `audio_mode="tts"` only when the generated track is unusable.
+    Some models ignore the requested `audio/wav` and answer with raw
+    `audio/l16`. Written to disk as-is that file has no duration, so ffprobe
+    reports 0 s and the render gets a broken reference track.
     """
+    if data[:4] == b"RIFF":
+        return data
+    n = len(data) - len(data) % 2
+    header = struct.pack(
+        "<4sI4s4sIHHIIHH4sI",
+        b"RIFF", 36 + n, b"WAVE",
+        b"fmt ", 16, 1, 1, rate, rate * 2, 2, 16,
+        b"data", n)
+    return header + data[:n]
+
+
+def pcm_peak(wav: bytes) -> int:
+    """Largest absolute 16-bit sample, so silence can be told from speech."""
+    if wav[:4] == b"RIFF":
+        i = wav.find(b"data", 12)
+        payload = wav[i + 8:] if i != -1 else wav[44:]
+    else:
+        payload = wav          # older models return headerless PCM
+    payload = payload[:len(payload) // 2 * 2]
+    peak = 0
+    for (s,) in struct.iter_unpack("<h", payload):
+        a = s if s >= 0 else -s
+        if a > peak:
+            peak = a
+    return peak
+
+
+def audio_ok(wav: bytes) -> bool:
+    """Reject the failure mode that shipped a silent take: valid but silent.
+
+    `gemini-3.8-flash-lite-tts` answers a styled request with 228 kB of zero
+    samples. Without this check that file becomes the lip-sync reference and
+    the finished clip is silent.
+    """
+    if not wav or len(wav) < 4000:
+        return False
+    if wav[:4] != b"RIFF":
+        return False
+    return pcm_peak(wav) > 64
+
+
+def _tts_legacy(key: str, text: str, model: str, voice: str,
+                timeout: float) -> bytes:
+    """Plain speech, no delivery control. Used when the style path fails."""
     body = {
         "contents": [{"parts": [{"text": text}]}],
         "generationConfig": {
@@ -355,17 +401,89 @@ def gemini_tts(key: str, text: str, model: str = "gemini-3.8-flash-tts",
             },
         },
     }
+    res = http_json(f"{GEMINI}/models/{model}:generateContent", body,
+                    headers={"x-goog-api-key": key},
+                    timeout=timeout, method="POST")
+    cands = res.get("candidates") or [{}]
+    parts = ((cands[0].get("content") or {}).get("parts")) or []
+    for p in parts:
+        inline = p.get("inlineData") or {}
+        data = inline.get("data")
+        if data:
+            return _ensure_wav(base64.b64decode(data))
+    raise RuntimeError("TTS returned no audio data.")
+
+
+def _tts_styled(key: str, text: str, model: str, voice: str, style: str,
+                timeout: float) -> bytes:
+    """Speech with a turn-level `style`, which is a real API field.
+
+    Do NOT put the style into the prompt text. That looks like it works, but
+    the model reads the instruction aloud: a 33-word line measured 10.8 s plain
+    and 23.8 s with a spoken prefix, the extra 13 s being the instruction
+    itself. `speech_metadata.style` is the supported channel.
+    """
+    body = {
+        "model": model,
+        "input": [{
+            "type": "user_input",
+            "content": [{
+                "type": "text", "text": text,
+                "annotations": [{"type": "speech_metadata", "style": style}],
+            }],
+        }],
+        "response_format": {"type": "audio", "mime_type": "audio/wav",
+                            "sample_rate": 24000},
+        "generation_config": {"speech_config": [{"voice": voice}]},
+    }
+    res = http_json(f"{GEMINI}/interactions", body,
+                    headers={"x-goog-api-key": key},
+                    timeout=timeout, method="POST")
+    data = (res.get("output_audio") or {}).get("data")
+    if not data:
+        raise RuntimeError("TTS returned no audio data.")
+    return _ensure_wav(base64.b64decode(data))
+
+
+def gemini_tts(key: str, text: str, model: str = "gemini-3.8-flash-tts",
+               voice: str = "Kore", style: str = "",
+               timeout: float = 180.0) -> bytes:
+    """Generate speech for `text` and return WAV bytes.
+
+    This is only the *reference* voice. MiniMax H3 renders picture and speech
+    in a single pass, so its own track is the one that actually matches the
+    mouth. We feed this WAV in as `ref_audios` to steer the performance, then
+    keep H3's native audio at export (`audio_mode="native"`). Use
+    `audio_mode="tts"` only when the generated track is unusable.
+
+    `style` is the character's own delivery - accent, pace, warmth, attitude.
+    The prebuilt voices are all American-presenter neutral, so without it a
+    creator sounds like a stock announcer rather than themselves.
+    """
     # Same free-tier quota trap as chat: fall through to another TTS model
     # rather than losing the voiceover and the lip-sync reference with it.
+    models = [model] + [m for m in TTS_FALLBACKS if m != model]
     tried: list[str] = []
     last: Exception | None = None
-    for name in [model] + [m for m in TTS_FALLBACKS if m != model]:
-        tried.append(name)
+    if style:
+        for name in models:
+            tried.append(f"{name} (styled)")
+            try:
+                wav = _tts_styled(key, text, name, voice, style, timeout)
+                if audio_ok(wav):
+                    LAST_TTS.update(model=name, styled=True)
+                    return wav
+                last = RuntimeError(f"{name} returned silent audio")
+            except Exception as e:
+                last = e
+    for name in models:
+        tried.append(f"{name} (plain)")
         try:
-            res = http_json(f"{GEMINI}/models/{name}:generateContent", body,
-                            headers={"x-goog-api-key": key},
-                            timeout=timeout, method="POST")
-            break
+            wav = _tts_legacy(key, text, name, voice, timeout)
+            if audio_ok(wav):
+                LAST_TTS.update(model=name, styled=False)
+                return wav
+            last = RuntimeError(f"{name} returned silent audio")
         except Exception as e:
             msg = str(e)
             retryable = ("HTTP 429" in msg or "quota" in msg.lower()
@@ -373,14 +491,5 @@ def gemini_tts(key: str, text: str, model: str = "gemini-3.8-flash-tts",
             last = e
             if not retryable:
                 raise
-    else:
-        raise RuntimeError("Gemini TTS quota exhausted on every model tried "
-                           f"({', '.join(tried)}): {last}")
-    cands = res.get("candidates") or [{}]
-    parts = ((cands[0].get("content") or {}).get("parts")) or []
-    for p in parts:
-        inline = p.get("inlineData") or {}
-        data = inline.get("data")
-        if data:
-            return base64.b64decode(data)
-    raise RuntimeError("TTS returned no audio data.")
+    raise RuntimeError("TTS produced no usable speech on any model "
+                       f"({', '.join(tried)}): {last}")

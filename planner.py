@@ -454,6 +454,9 @@ whenever you need a break. Shop now." Never use shop now, buy now, order today, 
 available now, don't miss out, get yours, or any line a brand would print on a poster.
 
 SCRIPT is spoken dialogue, not copy:
+- Write in THIS creator's voice. If a creator is described, match their vocabulary, \
+rhythm and attitude — a deadpan creator and a bubbly creator do not say the same \
+sentence. Never write lines that any generic presenter could have said.
 - Write what a person would actually say out loud. Fragments are fine. Fifth-grade \
 reading level. Maximum 12 words per scene.
 - Say each line in your head before writing it down. If a real person would not say that \
@@ -576,6 +579,9 @@ def plan_with_llm(settings: dict, brief_fields: dict, opts: dict) -> dict:
          f"Schema: {json.dumps(schema)}\n\n"
          f"Duration: {seconds}s across {n} scenes. Style: {opts.get('style')}. "
          f"Platform: {opts.get('platform')}. Aspect: {opts.get('aspect')}.\n"
+         f"Creator: {opts.get('creator') or 'not described'}."
+         + (f" Their tone: {opts['tone']}." if opts.get("tone") else "")
+         + "\n"
          f"Required skeleton (purpose, seconds, what that beat must achieve):\n"
          f"{skeleton}\n\n"
          f"Brief data: {json.dumps(brief_fields)}\n\nReturn JSON only."},
