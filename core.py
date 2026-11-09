@@ -88,7 +88,7 @@ def load_settings() -> dict:
     s.setdefault("video_steps", 0)             # 0 = auto by profile
     s.setdefault("video_upscale", True)        # resize the latent, not the sampler
     s.setdefault("video_upscale_factor", 1.75)  # standard 576x1024 -> 1008x1792
-    s.setdefault("audio_mode", "native")      # native = H3's own synced speech
+    s.setdefault("audio_mode", "perform")    # perform = H3 speaks the line itself
     s.setdefault("character", "")             # .char name, e.g. "ananya.char"
     s.setdefault("overlay_enabled", True)     # burn real text into the final cut
     s.setdefault("overlay_brand", True)       # brand / product name

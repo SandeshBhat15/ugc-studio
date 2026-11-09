@@ -1274,7 +1274,8 @@ function renderVideos(box,p){
           <option value="2.5" ${Number(S.settings?.video_upscale_factor??2.5)===2.5?'selected':''}>2.5x - 960x1696</option>
         </select></div>
         <div><label>Speech</label><select id="v_audio">
-          <option value="native" ${S.settings?.audio_mode==='native'?'selected':''}>Native H3 audio</option>
+          <option value="perform" ${S.settings?.audio_mode==='perform'?'selected':''}>H3 speaks the line (best voice)</option>
+          <option value="native" ${S.settings?.audio_mode==='native'?'selected':''}>H3 copies a TTS clip (lossy)</option>
           <option value="tts" ${S.settings?.audio_mode==='tts'?'selected':''}>Replace with Gemini TTS</option>
         </select></div>
       </div>
@@ -1591,7 +1592,8 @@ async function showSettings(){
         </div>
         <div class="grid c4" style="margin-top:14px">
           <div><label>Audio</label><select id="s_audio">
-            <option value="native" ${s.audio_mode==='native'?'selected':''}>Native H3 speech</option>
+            <option value="perform" ${s.audio_mode==='perform'?'selected':''}>H3 speaks the line</option>
+            <option value="native" ${s.audio_mode==='native'?'selected':''}>H3 copies a TTS clip</option>
             <option value="tts" ${s.audio_mode==='tts'?'selected':''}>Gemini TTS track</option></select></div>
           <div><label>Speech reference</label><select id="s_tts">
             <option value="1" ${s.tts_enabled!==false?'selected':''}>Generate per scene</option>

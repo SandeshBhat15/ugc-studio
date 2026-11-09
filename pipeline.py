@@ -770,10 +770,14 @@ SPEAKING_STILL = (
 )
 
 SPEAKING_VIDEO = (
-    "The creator is talking to the camera for the entire shot: mouth open, lips "
-    "and jaw moving continuously with the words, natural blinking, small head "
-    "movement on the stressed syllables. Never silent, never mouth closed, "
-    "never a voiceover laid over a still face."
+    # "Never mouth closed" used to be here. It forced the jaw open for the whole
+    # shot, so every frame was a wide grin and the model answered with a long
+    # uniform band of teeth. Real speech closes the lips between phrases.
+    "The creator is talking to the camera for the entire shot: lips and jaw "
+    "moving with the words, the mouth opening and closing naturally, lips "
+    "closing between phrases, eyes open and looking into the lens, natural "
+    "blinking, small head movement on the stressed syllables. Never a "
+    "voiceover laid over a still face."
 )
 
 # What separates a real face from a rendered one at this scale. The turbo LoRA
@@ -784,11 +788,28 @@ SPEAKING_VIDEO = (
 REALISM_VIDEO = (
     "Photographic realism: real human skin with visible pores, fine vellus hair, "
     "freckles and slight unevenness in tone, subsurface scattering in the cheeks "
-    "and nose, a little shine on the forehead. Individual teeth are visible and "
-    "correctly shaped, with natural gums, a visible tongue and a wet inner lip; "
-    "no fused teeth, no blurred or glowing white teeth. Eyes have catchlights, "
+    "and nose, a little shine on the forehead. "
+    # Asking for "individual teeth visible" produced a long, even white band
+    # that ran past both corners of the mouth. Teeth read as real when they are
+    # mostly hidden and only glimpsed as the lips part.
+    "Teeth are only glimpsed as the lips part, never held in a wide grin: a few "
+    "front teeth at most, slightly off-white, with natural gums and a wet inner "
+    "lip, never a continuous uniform white band. Eyes are open with catchlights, "
     "wet lower lids and visible iris detail. Not waxy, not plastic, not "
     "airbrushed, no beauty filter, no smooth digital skin."
+)
+
+# The still seeds the video, so the same rules have to hold here: whatever the
+# still shows, H3 keeps showing. A still with a wide grin produces a clip of
+# nothing but teeth, and any lettering in the still becomes legible gibberish
+# once the frame is upscaled.
+REALISM_STILL = (
+    "Photographic realism: real human skin with visible pores, fine vellus hair "
+    "and slight unevenness in tone, subsurface scattering, no beauty filter, no "
+    "skin smoothing. The mouth is relaxed and slightly open, as if caught "
+    "mid-word: only the tips of the upper front teeth show, the lips soft and "
+    "naturally shaped, the lower teeth mostly hidden. No lettering, no logos, no "
+    "printed labels, no numerals or text anywhere in the image."
 )
 
 FEMALE_WORDS = ("woman", "women", "girl", "female", " she ", " her ", "lady",
@@ -962,6 +983,7 @@ def run_stills(pid: str, scenes: list[int] | None = None) -> dict:
             # face, so any scene with a spoken line asks for a speaking pose.
             if str(s.get("script") or "").strip():
                 prompt = (prompt.rstrip(". ") + ". " + SPEAKING_STILL)
+            prompt = (prompt.rstrip(". ") + ". " + REALISM_STILL)
             seed = int(entry.get("seed") or 42)
             graph = c.image_graph(
                 prompt=prompt, width=width, height=height, ref_images=refs,
@@ -1142,6 +1164,106 @@ def align32(value: float) -> int:
     return max(32, int(round(float(value) / 32.0)) * 32)
 
 
+# Accents we can name. H3 takes the description literally, so saying "Indian
+# English" is what makes it come out Indian - the TTS style annotation never
+# survived the round trip, and every take came back American.
+ACCENT_WORDS = (
+    "Indian", "British", "American", "Australian", "Irish", "Scottish",
+    "Welsh", "Canadian", "Nigerian", "Kenyan", "South African", "Pakistani",
+    "Bangladeshi", "Sri Lankan", "Filipino", "Singaporean", "Malaysian",
+    "New Zealand", "Caribbean", "Ghanaian", "Jamaican",
+)
+
+
+def _age_of(text: str) -> str:
+    """Pull an age out of the character description, or guess mid-20s."""
+    m = re.search(r"\b(\d{2})\s*(?:-|\s)?\s*(?:year|yr)s?[\s-]*old", text, re.I)
+    if not m:
+        m = re.search(r"\b(?:age|aged)\s*(\d{2})\b", text, re.I)
+    if not m:
+        return "mid-20s"
+    age = int(m.group(1))
+    if age < 18:
+        return "teenage"
+    if age < 25:
+        return "early-20s"
+    if age < 30:
+        return "mid-20s"
+    if age < 40:
+        return "early-30s"
+    if age < 50:
+        return "40s"
+    return "50s or older"
+
+
+def _accent_of(text: str) -> str:
+    low = text.lower()
+    for word in ACCENT_WORDS:
+        if word.lower() in low:
+            return f"{word} English"
+    return "Indian English"
+
+
+def voice_brief(project: dict, voice_style: str = "", gender: str = "") -> str:
+    """One sentence describing the voice, for H3 to perform instead of copy.
+
+    The accent has to sit inside a full clause - "an Indian woman speaking
+    Indian English". Written as a comma list ("a woman, mid-20s Indian
+    English") H3 reads the first noun and drops the rest, and the take comes
+    back American.
+    """
+    ch = project.get("character") or {}
+    blob = " ".join(str(ch.get(k) or "") for k in
+                    ("description", "prompt", "tone", "voice_style"))
+    blob = f"{blob} {voice_style}".strip()
+    g = (gender or ch.get("gender") or "").lower()
+    who = "woman" if g.startswith("f") else "man" if g.startswith("m") else "person"
+    age = _age_of(blob)
+    accent = _accent_of(blob)
+    nation = accent.replace(" English", "").strip()
+
+    # Keep the delivery words, drop the ones that only repeat the age or the
+    # nationality so the sentence does not say "Indian" three times.
+    words: list[str] = []
+    for part in re.split(r"[,;/]| and ", f"{ch.get('tone') or ''}, {voice_style}"):
+        p = part.strip().strip(".").lower()
+        if not p:
+            continue
+        if nation.lower() in p or "english" in p:
+            continue
+        if re.search(r"\b\d{2}\b|mid-20s|early-20s|early-30s|year", p):
+            continue
+        if p not in words:
+            words.append(p)
+
+    out = f"a {age} {nation} {who} speaking {accent}"
+    if words:
+        poss = "Her" if who == "woman" else "His" if who == "man" else "Their"
+        out += f". {poss} voice is " + ", ".join(words)
+    return out
+
+
+def performance_prompt(line: str, brief: str, ambience: str = "",
+                      gender: str = "") -> str:
+    """The demo's trick: tell H3 who is speaking and what to say."""
+    g = (gender or "").lower()
+    they = "She" if g.startswith("f") else "He" if g.startswith("m") else "They"
+    out = [
+        f'{they} speaks one line out loud, straight into the phone: "{line}"',
+        f"Voice: {brief}. Close, unprocessed phone microphone in a small room, "
+        "real room tone, natural breaths, no studio polish, no broadcast voice.",
+    ]
+    if ambience.strip():
+        out.append(f"Room sound under the voice: {ambience.strip().rstrip('.')}.")
+    out.append(
+        f"{they} says the whole line clearly in one continuous take, at a quick, "
+        "casual pace, never slow and never announcer-like, lips and jaw moving "
+        "with every word, natural breaths between phrases. No other person "
+        "speaks, no music, no voiceover, no on-screen text."
+    )
+    return " ".join(out)
+
+
 def run_videos(pid: str, scenes: list[int] | None = None,
                seeds: dict | None = None) -> dict:
     project = get(pid)
@@ -1186,6 +1308,10 @@ def run_videos(pid: str, scenes: list[int] | None = None,
                      "this project has its own creator sheet and mixing two "
                      "identities makes the face drift.", "warn")
     want_tts = bool(settings.get("tts_enabled", True)) and bool(settings.get("gemini_key"))
+    audio_mode = str(settings.get("audio_mode") or "perform").lower()
+    # "perform" is how the MiniMax demo does it: H3 speaks the line itself from
+    # a described voice, instead of re-synthesising a TTS clip handed to it.
+    perform = audio_mode == "perform"
     audio_dir = root / "audio"
     audio_dir.mkdir(parents=True, exist_ok=True)
     targets = [s for s in sb.get("scenes", []) if not scenes or int(s["n"]) in scenes]
@@ -1239,21 +1365,30 @@ def run_videos(pid: str, scenes: list[int] | None = None,
                             raise RuntimeError("the voice model returned silence")
                     ref_wav = candidate
                 except Exception as e:
-                    # Rendering without a reference track means H3 invents its
-                    # own speech and the mouth no longer matches the script -
-                    # the exact bug this stage exists to prevent. Fail the
-                    # scene instead of shipping it.
-                    log(project, f"Scene {n} voiceover failed: {e}", "error")
-                    entry.update({"status": "needs_attention",
-                                  "error": f"Voiceover failed: {e}"})
-                    save(project)
-                    continue
+                    if not perform:
+                        # Without a reference track H3 would invent its own
+                        # speech over a lip-synced script it never heard.
+                        log(project, f"Scene {n} voiceover failed: {e}", "error")
+                        entry.update({"status": "needs_attention",
+                                      "error": f"Voiceover failed: {e}"})
+                        save(project)
+                        continue
+                    # In perform mode the TTS is only a stopwatch: H3 speaks the
+                    # line itself, so a quota failure costs timing accuracy, not
+                    # the scene.
+                    log(project, f"Scene {n}: no reference voice ({e}); H3 will "
+                                 "speak the line and the length is estimated.",
+                        "warn")
 
             seconds = float(s.get("seconds", 5))
             if ref_wav is not None:
                 ainfo = media.probe(ref_wav)
                 if ainfo.get("duration"):
                     seconds = float(ainfo["duration"])
+            elif perform and line:
+                # No stopwatch available: estimate from speaking rate. A little
+                # long is better than clipping the last word.
+                seconds = max(2.0, len(line.split()) / 2.6 + 0.7)
             length = frames_for(seconds)
             if project.get("single_take") and length > 362:
                 raise RuntimeError(
@@ -1262,8 +1397,18 @@ def run_videos(pid: str, scenes: list[int] | None = None,
             seed = int(entry.get("seed") or 42)
             video_prompt = str(s.get("video_prompt") or s.get("visual") or "subtle motion")
             if line:
-                # The prompt is the only thing telling H3 to move the mouth.
-                video_prompt = (video_prompt.rstrip(". ") + ". " + SPEAKING_VIDEO)
+                if perform:
+                    # H3 generates the voice from this description, the way the
+                    # MiniMax demo does. No reference clip is handed to it.
+                    g = (project.get("character") or {}).get("gender", "")
+                    video_prompt = (video_prompt.rstrip(". ") + ". " +
+                                    performance_prompt(
+                                        line,
+                                        voice_brief(project, voice_style, g),
+                                        str(s.get("audio") or ""), g))
+                else:
+                    # The prompt is the only thing telling H3 to move the mouth.
+                    video_prompt = (video_prompt.rstrip(". ") + ". " + SPEAKING_VIDEO)
             video_prompt = video_prompt.rstrip(". ") + ". " + REALISM_VIDEO
             def _graph(up):
                 return c.video_graph(
@@ -1274,7 +1419,8 @@ def run_videos(pid: str, scenes: list[int] | None = None,
                     seed=seed, turbo=turbo, audio=True, steps=steps,
                     character=video_character,
                     upscale=up,
-                    ref_audio=str(ref_wav).replace("\\", "/") if ref_wav else None)
+                    ref_audio=(None if perform else
+                               (str(ref_wav).replace("\\", "/") if ref_wav else None)))
 
             upscale_note = None
             qid = c.queue(_graph(upscale))
@@ -1319,16 +1465,22 @@ def run_videos(pid: str, scenes: list[int] | None = None,
                            "msg": "Voice may not match the creator: no gender is "
                                   "recorded for this character. Set it in the "
                                   "Characters tab."})
-            if want_tts and voice_style and not llm.LAST_TTS.get("styled"):
+            if want_tts and voice_style and not perform and not llm.LAST_TTS.get("styled"):
                 qc.append({"level": "warn",
                            "msg": "The delivery style was not applied: the voice "
                                   "model that answered does not accept a style. "
                                   "The words still follow the character's tone."})
+            if perform:
+                qc.append({"level": "info",
+                           "msg": "H3 spoke this line itself from the character's "
+                                  "voice description. Check the words by ear before "
+                                  "exporting."})
             entry.update({
                 "status": "completed", "file": str(dest.relative_to(root)).replace("\\", "/"),
                 "width": info.get("width"), "height": info.get("height"),
                 "fps": info.get("fps"), "duration": info.get("duration"),
                 "has_audio": info.get("has_audio"), "frames": length,
+                "audio_mode": audio_mode, "performed": perform,
                 "voiceover": (str(ref_wav.relative_to(root)).replace("\\", "/")
                               if ref_wav is not None else None),
                 "turbo": turbo, "steps": steps,

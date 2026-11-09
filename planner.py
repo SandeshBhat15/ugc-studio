@@ -503,7 +503,10 @@ lives in the spoken line and the burned-in caption.
 - Do not put text-bearing props in frame either: no branded mug, poster, book cover, \
 packet, phone screen or clothing print. At draft size those are an unreadable blur, \
 and an upscale turns them into legible nonsense. If a prop is needed, name a plain \
-version of it (a plain white mug, a plain notebook).
+version of it (a plain white mug, a plain notebook). Printed numerals are the same \
+problem: a wall clock, calendar, timer, price tag or date stamp reads as gibberish \
+once the frame is upscaled, so either leave clocks out of frame or name a plain \
+unmarked clock face.
 
 Output minified JSON only, matching the schema exactly. Scene durations must sum exactly \
 to the requested total."""

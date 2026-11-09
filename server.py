@@ -377,8 +377,19 @@ class Handler(BaseHTTPRequestHandler):
                     return self._err("Add a Gemini key in Settings first.", 400)
                 voice = (body.get("voice") or "").strip()
                 if not voice:
-                    voice, _why = pipeline.derive_voice_for(body.get("text", ""),
+                    # Derive from what the character *is*, not from the line
+                    # being spoken: the sentence "Honestly, it is four p.m."
+                    # says nothing about how they sound.
+                    blob = " ".join(str(body.get(k) or "") for k in
+                                    ("description", "tone", "style", "text"))
+                    voice, _why = pipeline.derive_voice_for(blob,
                                                             body.get("gender", ""))
+                if not voice:
+                    # Nothing to derive from - audition the gender default
+                    # rather than sending an empty name and 400ing.
+                    voice = (s.get("tts_voice_male")
+                             if str(body.get("gender", "")).lower() == "male"
+                             else s.get("tts_voice_female")) or s.get("tts_voice") or "Kore"
                 text = (body.get("line") or "").strip() or (
                     "Honestly, it is four p.m. and I can feel it. "
                     "Coffee, milk, sugar. That is it.")

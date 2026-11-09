@@ -20,3 +20,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Scratch scripts written while debugging a render, not part of the app.
+_*.py
