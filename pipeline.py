@@ -15,6 +15,7 @@ import comfy as comfy_mod
 import llm
 import media
 import planner
+import voices
 from comfy import Comfy, ComfyError, frames_for, resolve_size
 from core import (PROJECTS_DIR, comfy_dir, ensure_dirs, load_settings, now,
                   read_json, slugify, unique_dir, write_json)
@@ -775,6 +776,21 @@ SPEAKING_VIDEO = (
     "never a voiceover laid over a still face."
 )
 
+# What separates a real face from a rendered one at this scale. The turbo LoRA
+# and low step counts flatten skin into wax and turn teeth into a white smear,
+# so this is appended to every video prompt and the sampler runs the quality
+# path. It is deliberately phrased as photographic description, not as a
+# negative prompt: the graph has no negative input.
+REALISM_VIDEO = (
+    "Photographic realism: real human skin with visible pores, fine vellus hair, "
+    "freckles and slight unevenness in tone, subsurface scattering in the cheeks "
+    "and nose, a little shine on the forehead. Individual teeth are visible and "
+    "correctly shaped, with natural gums, a visible tongue and a wet inner lip; "
+    "no fused teeth, no blurred or glowing white teeth. Eyes have catchlights, "
+    "wet lower lids and visible iris detail. Not waxy, not plastic, not "
+    "airbrushed, no beauty filter, no smooth digital skin."
+)
+
 FEMALE_WORDS = ("woman", "women", "girl", "female", " she ", " her ", "lady",
                 "mother", " mum", " mom", "actress", "wife", "girlfriend")
 MALE_WORDS = (" man", " men", " boy", " male", " he ", " his ", " guy",
@@ -855,12 +871,33 @@ def resolve_voice(project: dict, settings: dict) -> tuple[str, str, str]:
     if cv["name"]:
         return cv["name"], style, "set on the character"
     gender = creator_gender(project)
+    # No voice was chosen by hand, so read the character and pick one. This is
+    # the difference between "a voice" and *this* person's voice: a stock
+    # prebuilt name is only right if it came from what the character is.
+    ch = project.get("character") or {}
+    blob = " ".join([
+        str(ch.get("description") or ""), str(ch.get("prompt") or ""),
+        str(ch.get("tone") or ""), style,
+        str(project.get("brief") or "")[:400],
+    ])
+    name, why = voices.derive(blob, gender)
+    if name:
+        return name, style, why
     if gender == "male":
         return (settings.get("tts_voice_male") or "Puck"), style, "male creator default"
     if gender == "female":
         return (settings.get("tts_voice_female") or "Kore"), style, "female creator default"
     return ((settings.get("tts_voice") or "Kore"), style,
             "gender unknown - using the default voice")
+
+
+def derive_voice_for(blob: str, gender: str = "") -> tuple[str, str]:
+    """Public entry point for the picker and the preview endpoint."""
+    return voices.derive(blob, gender)
+
+
+def voice_options() -> list[dict]:
+    return voices.options()
 
 
 def run_stills(pid: str, scenes: list[int] | None = None) -> dict:
@@ -1125,14 +1162,16 @@ def run_videos(pid: str, scenes: list[int] | None = None,
         if factor > 1.0:
             upscale = (align32(width * factor), align32(height * factor))
     root = PROJECTS_DIR / pid
-    # Resolution and sampler quality are independent knobs. What made the
-    # video look plastic was the turbo LoRA + euler + 8 steps, NOT the small
-    # frame size. So the sampler always runs the quality path (turbo OFF,
-    # res_multistep) and `video_profile` only chooses the render size — which
-    # lets draft resolution stay cheap while still looking real.
+    # Resolution and sampler quality are independent knobs. What makes the
+    # video look plastic is the turbo LoRA plus a handful of steps, NOT the
+    # frame size, so the quality path is the default and turbo is an explicit
+    # opt-in for throwaway previews.
     turbo = bool(settings.get("video_turbo", False))
+    if turbo:
+        log(project, "Turbo LoRA is on: expect waxy skin and soft teeth. "
+                     "Turn it off in Render settings for the real pass.", "warn")
     steps = int(settings.get("video_steps", 0) or
-                {"draft": 20, "standard": 25, "high": 30}.get(profile, 20))
+                {"draft": 24, "standard": 30, "high": 36}.get(profile, 30))
     voice, voice_style, voice_reason = resolve_voice(project, settings)
     if voice_reason.startswith("gender unknown"):
         log(project, f"Voice: {voice_reason} ({voice}). Set the creator's gender "
@@ -1225,6 +1264,7 @@ def run_videos(pid: str, scenes: list[int] | None = None,
             if line:
                 # The prompt is the only thing telling H3 to move the mouth.
                 video_prompt = (video_prompt.rstrip(". ") + ". " + SPEAKING_VIDEO)
+            video_prompt = video_prompt.rstrip(". ") + ". " + REALISM_VIDEO
             def _graph(up):
                 return c.video_graph(
                     image_name=str(still_path).replace("\\", "/"),

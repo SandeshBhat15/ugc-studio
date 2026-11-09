@@ -500,6 +500,10 @@ otherwise. continuity states exactly what must not change.
 anywhere in the scene. The image model renders lettering as gibberish, and garbled \
 brand text is worse than no text. Describe a plain unlabelled container; the brand \
 lives in the spoken line and the burned-in caption.
+- Do not put text-bearing props in frame either: no branded mug, poster, book cover, \
+packet, phone screen or clothing print. At draft size those are an unreadable blur, \
+and an upscale turns them into legible nonsense. If a prop is needed, name a plain \
+version of it (a plain white mug, a plain notebook).
 
 Output minified JSON only, matching the schema exactly. Scene durations must sum exactly \
 to the requested total."""

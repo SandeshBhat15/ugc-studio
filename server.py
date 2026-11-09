@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import base64
 import mimetypes
 import os
 import re
@@ -267,6 +268,8 @@ class Handler(BaseHTTPRequestHandler):
                                    "characters": pipeline.list_characters()})
             if p == "/api/llm/status":
                 return self._json(llm.status())
+            if p == "/api/voice/options":
+                return self._json({"ok": True, "voices": pipeline.voice_options()})
             if p == "/api/projects":
                 return self._json(pipeline.list_projects())
             m = re.match(r"^/api/projects/([^/]+)/files$", p)
@@ -364,6 +367,32 @@ class Handler(BaseHTTPRequestHandler):
                         model = free[0]["id"] if free else "openrouter/free"
                     res = llm.probe_structured(model, "openrouter", key)
                 return self._json({"ok": res.get("ok", False), "model": model, "detail": res})
+            if p == "/api/voice/preview":
+                # Audition a voice before committing a project to it. The
+                # character card stores the name; this is how you find out what
+                # that name actually sounds like.
+                body = self._jsonbody()
+                s = load_settings()
+                if not s.get("gemini_key"):
+                    return self._err("Add a Gemini key in Settings first.", 400)
+                voice = (body.get("voice") or "").strip()
+                if not voice:
+                    voice, _why = pipeline.derive_voice_for(body.get("text", ""),
+                                                            body.get("gender", ""))
+                text = (body.get("line") or "").strip() or (
+                    "Honestly, it is four p.m. and I can feel it. "
+                    "Coffee, milk, sugar. That is it.")
+                try:
+                    wav = llm.gemini_tts(s["gemini_key"], text, voice=voice,
+                                         style=(body.get("style") or "").strip())
+                except Exception as e:
+                    return self._err(f"Voice preview failed: {e}", 502)
+                return self._json({"ok": True, "voice": voice,
+                                   "model": llm.LAST_TTS.get("model"),
+                                   "styled": bool(llm.LAST_TTS.get("styled")),
+                                   "wav": base64.b64encode(wav).decode("ascii")})
+            if p == "/api/voice/options":
+                return self._json({"ok": True, "voices": pipeline.voice_options()})
             if p == "/api/projects":
                 return self._json(pipeline.new_project(self._jsonbody()))
             if p == "/api/characters":

@@ -83,11 +83,11 @@ def load_settings() -> dict:
     s.setdefault("openrouter_model", "")      # "" = auto-pick free
     s.setdefault("allow_cloud_refs", False)   # privacy gate for uploading images
     s.setdefault("profile", "standard")       # draft | standard | high (stills)
-    s.setdefault("video_profile", "draft")    # render size only: draft 384x672
-    s.setdefault("video_turbo", True)         # turbo LoRA keeps 8 GB cards fast
-    s.setdefault("video_steps", 0)            # 0 = auto by profile
-    s.setdefault("video_upscale", True)       # resize the latent, not the sampler
-    s.setdefault("video_upscale_factor", 2.5)  # draft 384x672 -> 960x1696
+    s.setdefault("video_profile", "standard")  # render size: draft 384x672, standard 576x1024
+    s.setdefault("video_turbo", False)         # OFF: the turbo LoRA is what made skin plastic
+    s.setdefault("video_steps", 0)             # 0 = auto by profile
+    s.setdefault("video_upscale", True)        # resize the latent, not the sampler
+    s.setdefault("video_upscale_factor", 1.75)  # standard 576x1024 -> 1008x1792
     s.setdefault("audio_mode", "native")      # native = H3's own synced speech
     s.setdefault("character", "")             # .char name, e.g. "ananya.char"
     s.setdefault("overlay_enabled", True)     # burn real text into the final cut

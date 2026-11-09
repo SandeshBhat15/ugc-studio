@@ -393,7 +393,7 @@ const humanStatus = st => { const s=String(st||'not started').replace(/_/g,' ').
 let S = {
   view:'home', tab:'brief', project:null, projects:[], inv:null, chars:[], files:null,
   settings:null, briefEdit:false, sel:{stills:new Set(), videos:new Set()}, fileFilter:'all',
-  charDraft:{face:[],body:[],cloths:[],voice:null}, poll:null, elapsed:null
+  charDraft:{face:[],body:[],cloths:[],voice:null}, poll:null, elapsed:null, voices:[]
 };
 
 /* ------------------------------------------------------------ api */
@@ -443,6 +443,7 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
 async function boot(){
   await refreshHealth();
   await refreshProjects();
+  api('/api/voice/options').then(d=>{ S.voices = d.voices||[]; }).catch(()=>{});
   const last = localStorage.getItem('lastProject');
   if(last){
     try{ await openProject(last); return; }catch{}
@@ -1029,14 +1030,19 @@ function renderStills(box,p){
               </select></div>
             <div><label>Voice</label>
               <select id="ch_voice">
-                <option value="">Auto by gender</option>
-                ${['Kore','Aoede','Leda','Zephyr','Puck','Charon','Fenrir','Orus'].map(v=>`<option value="${v}" ${(ch.voice||{}).name===v?'selected':''}>${v}</option>`).join('')}
+                <option value="">Auto from the character</option>
+                ${(S.voices.length?S.voices:[{name:'Kore',blurb:'firm'},{name:'Leda',blurb:'youthful'},{name:'Achernar',blurb:'soft'},{name:'Puck',blurb:'upbeat'},{name:'Charon',blurb:'informative'}]).map(v=>`<option value="${v.name}" ${(ch.voice||{}).name===v.name?'selected':''}>${v.name} — ${esc(v.blurb)}</option>`).join('')}
               </select></div>
             <div><label>Tone (how they talk)</label>
               <input id="ch_tone" value="${esc(ch.tone||'')}" placeholder="deadpan, fast, self-deprecating"/></div>
           </div>
           <div style="margin-top:10px"><label>Voice style (accent, pace, warmth)</label>
-            <input id="ch_voice_style" value="${esc((ch.voice||{}).style||'')}" placeholder="mid-20s Indian English, warm, quick, casual, slight smile"/></div>
+            <div class="field-row">
+              <input id="ch_voice_style" style="flex:1" value="${esc((ch.voice||{}).style||'')}" placeholder="mid-20s Indian English, warm, quick, casual, slight smile"/>
+              <button class="btn sm" data-act="voice-preview">Preview</button>
+            </div>
+            <audio id="ch_voice_audio" controls style="width:100%;margin-top:8px;display:none"></audio>
+          </div>
           <div class="field-row" style="margin-top:10px">
             <button class="btn ${ch.file?'':'primary'}" data-act="gen-character">${ch.file?'Regenerate sheet':'Generate sheet'}</button>
             <span class="mono">${ch.width?`${ch.width}×${ch.height} · seed ${ch.seed}`:''}</span>
@@ -1181,6 +1187,25 @@ async function genCharacter(){
       {description,gender,voice,voice_style,tone});
     await refreshProject(true); toast('Character sheet generation started.');
   }catch(e){ fail(e); }
+}
+
+async function previewVoice(){
+  const btn=document.querySelector('[data-act="voice-preview"]');
+  const audio=$('#ch_voice_audio');
+  const voice=($('#ch_voice')?.value||'').trim();
+  const style=($('#ch_voice_style')?.value||'').trim();
+  const description=($('#ch_desc')?.value||'').trim();
+  const tone=($('#ch_tone')?.value||'').trim();
+  const gender=($('#ch_gender')?.value||'').trim();
+  if(btn){ btn.disabled=true; btn.textContent='Generating…'; }
+  try{
+    const r=await jpost('/api/voice/preview',{voice,style,gender,text:[description,tone].join(' ')});
+    audio.src='data:audio/wav;base64,'+r.wav;
+    audio.style.display='block';
+    audio.play().catch(()=>{});
+    toast(`Preview: ${r.voice}${r.styled?' (with delivery)':' (prebuilt voice only — the styled model is out of quota)'}`);
+  }catch(e){ fail(e); }
+  finally{ if(btn){ btn.disabled=false; btn.textContent='Preview'; } }
 }
 
 /* ------------------------------------------------------------ videos */
@@ -1880,6 +1905,7 @@ document.addEventListener('click', async e=>{
   if(act==='gen-all-stills'){ e.preventDefault(); return genStills(null); }
   if(act==='gen-selected-stills'){ e.preventDefault(); return genStills([...S.sel.stills]); }
   if(act==='gen-character'){ e.preventDefault(); return genCharacter(); }
+  if(act==='voice-preview'){ e.preventDefault(); return previewVoice(); }
   if(act==='regen-video'){ e.preventDefault(); return openRegenVideo(n); }
   if(act==='gen-all-videos'){ e.preventDefault(); return genVideos(null); }
   if(act==='gen-selected-videos'){ e.preventDefault(); return genVideos([...S.sel.videos]); }
